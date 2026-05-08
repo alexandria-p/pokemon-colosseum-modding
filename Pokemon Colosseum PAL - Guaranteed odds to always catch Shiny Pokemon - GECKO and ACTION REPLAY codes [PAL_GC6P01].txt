@@ -1,4 +1,4 @@
-PAL version of Pokemon Colosseum (Rom: PAL_GC6P0)
+PAL version of Pokemon Colosseum (Rom: PAL_GC6P01)
 
 GECKO CODE: Force shadow pokemon to always become shiny once caught:
 C2128584 00000004
@@ -20,7 +20,7 @@ ACTION REPLAY CODE: AR code handler for Gecko NOP patches (always required in or
 
 Please note: due to a bug in the base game, shiny pokemon will visibly appear as shiny once you catch them, but not while controlled by the opponent. This is unfortunately an issue in all vanilla Pokemon Colosseum roms - you can see it in action if you ever watch Youtube videos of shiny hunters, they only know for sure if the pokemon is a shiny once it is caught and they check the summary of the pokemon in their PARTY.
 
-INSTRUCTIONS FOR INSTALLATION: This mod will only work on the PAL version of Pokemon Colosseum (Rom: PAL_GC6P0). You MUST also have the Action Replay code (above) in order to get the gecko code working. It will work for any trainer or savefile, and entirely works in-game - there is no need to modify your savefile for shinies anymore in a secondary program such as PkHexm.
+INSTRUCTIONS FOR INSTALLATION: This mod will only work on the PAL version of Pokemon Colosseum (Rom: PAL_GC6P01). You MUST also have the Action Replay code (above) in order to get the gecko code working. It will work for any trainer or savefile, and entirely works in-game - there is no need to modify your savefile for shinies anymore in a secondary program such as PkHexm.
 
 FUTURE IMPROVEMENTS (feel free to pickup this code and try making these improvements):
 - only apply the 'force shiny' logic to shadow pokemon, not to all AI enemy pokemon
