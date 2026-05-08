@@ -1,6 +1,9 @@
 Gamecube/Wii Pokemon Mods & Hacks (Discord invite:  https://discord.com/invite/xCPjjnv)
 
-# Assorted information (all tested on Makuhita fight, first shadow encounter) (Rom: PAL_GC6P0):
+
+PAL version of Pokemon Colosseum (Rom: PAL_GC6P01)
+
+# Assorted information (all tested on Makuhita fight, first shadow encounter) (Rom: PAL_GC6P01):
 Save base changes between sessions, which can affect the location of these memory addresses below.  Always re-read 0x804C8268 at start of each session. Recalculate all memory addresses from new base. 
 
 For reference, shadow registry base is (save_base + 0x82B0) - in my below info my save base is 0x80455CF4 , so I list the shadow registry as 0x8045DC90
