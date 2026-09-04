@@ -500,6 +500,49 @@ that final extract with `li rX, 1`:
 | "All Pokemon Are Shiny On/Off" | 3 of the 4 writes, "GFX only" | separates display sites from the real PID site (above) |
 | "Complete Strategy Memo" | `120082A8 00000182`, then fills at step `0x0C` | **count at `+0x82A8` = 386 entries, 12-byte stride** — our memo model exactly |
 
+### Trainer / record accessor functions (US)
+
+| Address | Symbol / role |
+|---|---|
+| `80123EF0` | **set OT info** — `(r3=record, r4=f113, r5=f114, r6=f115, r7=f116, r8=OT TID, r9=OT name string)`. Sets **TID but not SID**. Exit at `80123FA8`. |
+| `80129F20` | builds a trainer's party into a stack buffer, then calls the above |
+| `80129280` | `zz_trainer_get_data_pointer` — `(r3=trainer index, r4=2)`; index 0 = the player |
+| `8012A5B0` | `zz_trainer_get_value_with_index` — index **1** = OT name msg id, **2** = **TID**, 11 = a byte |
+| `801254B4` | **Pokémon set-value-by-index** `(r3=record, r5=index, r7=value)`. The map calls this `GSmaterialSetTexture` — **that name is wrong.** |
+| `801FB1C0` | `zz_pokemon_data_get_value_with_index_r5` (the getter) |
+| `800FA280` | `zz_get_string_with_msg_id` |
+| `8011FC74` | `zz_battle_pokemon_check_if_shadow` |
+| `801FA3E8` | the `li r6, 0` Stars calls the **shiny lock** |
+| `801FA3D8` | Stars' `shadowsOnlyLock` hook point |
+
+Field indices used by `801254B4` / read by `8012640C`
+(`zz_battle_pokemon_get_value_with_id_r5`):
+
+| Index | Field |
+|---|---|
+| 111 | **PID** (stored right after the generator returns, `801FA3FC`) |
+| 113–118 | the OT block — **117 = OT TID**, **118 = OT name string** |
+| 122 | read during party build |
+| **194** | **is-shadow** — what `zz_battle_pokemon_check_if_shadow` reads |
+| 195, 197, 198, 199 | written by the shadow setup at `8011FCA4`; 200 read |
+| 201 | set during trainer generation (`801F9E50`) |
+
+Battle-Pokémon generation order, which matters when choosing a hook:
+
+```
+801F9F78  gen_battle_pokemon_from_data_table
+  801FA3EC  bl PID generator        -> field 111 = PID
+  801FA418  bl 8011FCA4             -> shadow setup
+801F9E84  bl 80129F20               (party builder)
+  80129FB0  bl 8011F5FC             -> verbatim record copy into a stack buffer
+  80129FD0  bl 80123EF0             -> OT setter (TID + name only, no SID)
+  8012A018  bl 8011F5FC             -> copy out to the trainer's party slot
+```
+
+So by the time the OT setter runs, the PID and the shadow fields are already on
+the record — which is what makes a shadow-gated hook at the OT setter's exit
+(`80123FA8`) viable.
+
 Useful US-only named symbols found while working:
 
 | Address | Symbol |

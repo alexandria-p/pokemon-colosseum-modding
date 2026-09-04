@@ -1,0 +1,200 @@
+Pokémon Colosseum — Fix the shadow shiny glitch: give enemy generated Pokémon
+the PLAYER's OT Trainer ID / Secret ID, so a PID that is shiny against the
+player actually DISPLAYS as shiny in battle.
+
+US / GC6E01.  Written 2026-09-04.
+Designed to run alongside codes/force_shadow_shiny_US.txt.
+See Claude Assets/handoffs/2026-09-04_2135_fix-shadow-shiny-glitch-us.md
+
+
+-------------------------------------------------------------------------------
+THE CODE  — shadow Pokemon only
+-------------------------------------------------------------------------------
+C2123FA8 00000007
+281A0000 4182002C
+A19A00D8 280C0000
+41820020 3D608047
+616BADB8 816B0000
+280B0000 4182000C
+818B009C 919A0014
+BB410008 00000000
+
+Disassembly:
+    cmplwi r26, 0            ; r26 = the Pokemon record being built
+    beq    skip              ; null record -> do nothing
+    lhz    r12, 0xD8(r26)    ; Shadow Pokemon ID  (0 = not a shadow)
+    cmplwi r12, 0
+    beq    skip              ; ordinary Pokemon -> leave its OT alone
+    lis    r11, 0x8047
+    ori    r11, r11, 0xADB8  ; r11 = &saveBasePtr   (US 0x8047ADB8)
+    lwz    r11, 0(r11)       ; r11 = save base
+    cmplwi r11, 0
+    beq    skip              ; no save loaded yet -> do nothing
+    lwz    r12, 0x9C(r11)    ; player's (SID << 16) | TID
+    stw    r12, 0x14(r26)    ; record OT SID (+0x14) and OT TID (+0x16)
+  skip:
+    lmw    r26, 0x8(r1)      ; the overwritten original instruction
+    (00000000 = padding to a whole 8-byte line)
+
+13 instructions + 1 padding word = 7 lines.  All three internal branches are
+PC-relative within the block, so they stay correct wherever the codehandler
+copies it.
+
+-------------------------------------------------------------------------------
+WHY THIS WORKS
+-------------------------------------------------------------------------------
+The one-instruction trick: the player's trainer ID dword at saveBase+0x9C is
+stored as (SID << 16) | TID, and a Pokemon record stores OT SID at +0x14 and
+OT TID at +0x16 -- the SAME halfword order.  So a single lwz/stw pair copies
+both fields correctly, with no shifting or masking.
+
+Verified in the US MRAM dump:
+    save   +0x9C dword            = 8C55208A   (SID 8C55, TID 208A)
+    Makuhita record +0x14 dword   = 20D138F5   (OT SID 20D1, OT TID 38F5)
+    Strategy Memo entry 9 otID    = 20D138F5   (same layout again)
+
+Hook point: 0x80123FA8 is the exit of the OT-setter function at 0x80123EF0:
+
+    80123EF0  stwu r1, -0x20(r1)
+    80123F00  mr.  r26, r3        ; r26 = record pointer
+    80123F18  beq  0x80123FA8     ; null record -> straight to the exit
+              ... sets field 113, 114, 115, 116,
+                  field 117 = r8  (OT Trainer ID),
+                  field 118 = r9  (OT name string) ...
+    80123FA8  lmw  r26, 0x8(r1)   ; <- HOOK.  r26 still holds the record.
+    80123FB8  blr
+
+Hooking the exit rather than the entry matters: the function's own setters run
+first, so patching arguments on the way in would just be overwritten.  Writing
+at the exit lands after every field the game sets, and before the record is
+committed to the party by its caller.
+
+Caller chain for enemy trainer Pokemon:
+
+    801F9E84  bl 0x80129F20            ; build a trainer's party
+    80129FB0  bl 0x8011F5FC            ; copy template into a stack buffer
+    80129FD0  bl 0x80123EF0            ; <- OT setter, our hook is inside
+    8012A05C  bl 0x80134BC0            ; commit the finished record
+
+
+-------------------------------------------------------------------------------
+IMPORTANT: this function sets TID but NOT Secret ID
+-------------------------------------------------------------------------------
+0x80123EF0 receives the OT Trainer ID in r8 and the OT NAME in r9 -- there is no
+SID argument.  (r9 is passed to 0x800FA280 = zz_get_string_with_msg_id, and the
+e-Card callers pass literal TIDs in r8, e.g. li r8, 31121 = Ageto Celebi's
+known OT ID.)  The record's OT SID arrives earlier, via the template copy at
+0x80129FB0.
+
+That is why Stars' fixShinyGlitch() in GoD-Tool only replaces the TID -- it is
+all that function offers.  Writing the whole dword at record+0x14, as this code
+does, sets BOTH halves and needs no field indices at all.
+
+
+-------------------------------------------------------------------------------
+WHY THE SHADOW GATE IS SAFE (verified, not assumed)
+-------------------------------------------------------------------------------
+The gate reads record+0xD8, the Shadow Pokemon Identifier (1 = Makuhita ...
+0x30 = Togetic; 0 for everything else).  The question was whether that field is
+already populated when the OT setter runs.  It is:
+
+  1. 0x801F9F78 (gen_battle_pokemon_from_data_table) builds the record and rolls
+     the PID, then at 0x801FA418 calls 0x8011FCA4 for shadow setup.  All of this
+     happens BEFORE the OT setter.
+  2. Its caller then calls 0x80129F20, which at 0x80129FB0 copies the whole
+     record into its own stack buffer with 0x8011F5FC.  The record is ~0x138
+     bytes and the copy is verbatim, so +0xD8 comes along.
+  3. 0x80129FD0 calls the OT setter on that buffer -- our hook.
+  4. Nothing between the OT setter and the copy-out at 0x8012A018 writes to the
+     buffer.
+
+Confirmed empirically in the US dump: opponent array A holds Duskull +0xD8=0000,
+Spinarak +0xD8=0000, Makuhita +0xD8=0001.
+
+An alternative gate is bl 0x8011FC74 (zz_battle_pokemon_check_if_shadow), the
+game's own predicate -- it reads field 194 through the getter at 0x8012640C.
+LR is safe to clobber at this hook, since the function reloads it from 0x24(r1)
+at 0x80123FAC, two instructions later.  Not used here because the direct field
+read is cheaper and needs no register save.
+
+
+-------------------------------------------------------------------------------
+FALLBACK — unconditional (all generated Pokemon, not just shadows)
+-------------------------------------------------------------------------------
+C2123FA8 00000005
+281A0000 41820020
+3D608047 616BADB8
+816B0000 280B0000
+4182000C 818B009C
+919A0014 BB410008
+
+The same code with the +0xD8 gate removed.  Use only if the gated version turns
+out to do nothing -- that would mean the shadow ID is not populated as early as
+the analysis above concludes, and this version would confirm the rest of the
+code is sound.
+
+
+-------------------------------------------------------------------------------
+SCOPE — what else this touches
+-------------------------------------------------------------------------------
+The gated version only rewrites the OT of shadow Pokemon, so nothing else is
+affected.  The fallback is unconditional and would reach every Pokemon whose OT
+is set through 0x80123EF0.  Callers found in the dump:
+
+    800097D8   debug-menu path
+    80129FD0   trainer party generation      <- the one we want
+    801306FC   e-Card / bonus gift Pokemon   (Ageto Celebi, TID 31121)
+    8013080C   e-Card / bonus gift Pokemon
+    8013092C   e-Card / bonus gift Pokemon
+    80130A14   e-Card / bonus gift Pokemon
+    8025CE54   (unidentified)
+
+With the fallback, e-Card and bonus Pokemon would lose their distinctive OT IDs
+(Ageto Celebi's 31121 and friends).  The gated version leaves them alone, since
+they are not shadow Pokemon.
+
+Note that force_shadow_shiny_US is itself unconditional -- it forces every
+rolled PID shiny, not just shadows.  This code being shadow-gated does not
+narrow that.
+
+
+-------------------------------------------------------------------------------
+USING IT WITH force_shadow_shiny_US
+-------------------------------------------------------------------------------
+Enable both, plus the anti-AR NOP set.  They are independent hooks and do not
+overlap:
+
+    force_shadow_shiny_US   hooks 0x80124410 (PID generator)
+                            -> rolls a PID that is shiny against the PLAYER
+    this code               hooks 0x80123FA8 (OT setter exit)
+                            -> stores the PLAYER's OT SID/TID on the record
+
+Together the in-battle check computes
+    OT_TID ^ OT_SID ^ PID_hi ^ PID_lo == 0
+and the Pokemon renders shiny while the enemy still owns it -- which is the
+behaviour the base game gets wrong.
+
+force_shadow_shiny_US on its own still produces a Pokemon that becomes shiny
+once caught; this code is what makes it visible during the battle.
+
+Prerequisites: Claude Output/codes/ar_codehandler_nop for gecko codes.txt, and
+Dolphin in JIT64 SC mode.
+
+
+-------------------------------------------------------------------------------
+VERIFICATION STATUS
+-------------------------------------------------------------------------------
+Confirmed against the US MRAM dump and the GC6E01 map:
+  * 0x80123FA8 holds BB410008 (lmw r26, 0x8(r1)) -- the re-emitted instruction
+  * r26 is the record pointer at that point, and is not reloaded until the
+    instruction we re-emit
+  * the +0x14 / +0x9C halfword-order match, three independent records
+  * every instruction encoding round-tripped through a disassembler
+  * both internal branch offsets land exactly on the re-emitted lmw
+  * 0x80123EF0's argument roles, from its callers (e-Card literal TIDs) and
+    from Stars' fixShinyGlitch() naming
+  * the shadow gate: +0xD8 is set before the OT setter runs (call-order trace
+    above), and array A in the dump shows 0001 for the shadow and 0000 for both
+    non-shadows
+
+NOT yet tested in-game.
