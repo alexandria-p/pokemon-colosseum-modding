@@ -7,8 +7,12 @@ Designed to run alongside codes/force_shadow_shiny_US.txt.
 See Claude Assets/handoffs/2026-09-04_2135_fix-shadow-shiny-glitch-us.md
 
 
+PAL conversion: codes/fix_shadow_shiny_glitch_PAL.txt
+  (hook 0x80123FA8 -> 0x8012811C, global 0x8047ADB8 -> 0x804C8268; nothing else)
+
+
 -------------------------------------------------------------------------------
-THE CODE  — shadow Pokemon only
+THE CODE  — shadow Pokemon only   *** CONFIRMED WORKING IN-GAME 2026-09-04 ***
 -------------------------------------------------------------------------------
 C2123FA8 00000007
 281A0000 4182002C
@@ -197,4 +201,4 @@ Confirmed against the US MRAM dump and the GC6E01 map:
     above), and array A in the dump shows 0001 for the shadow and 0000 for both
     non-shadows
 
-NOT yet tested in-game.
+CONFIRMED WORKING IN-GAME (2026-09-04).

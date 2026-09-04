@@ -515,6 +515,12 @@ that final extract with `li rX, 1`:
 | `801FA3E8` | the `li r6, 0` Stars calls the **shiny lock** |
 | `801FA3D8` | Stars' `shadowsOnlyLock` hook point |
 
+PAL counterparts of the ones we hook: OT setter `80123EF0` → **`80128064`**
+(exit `80123FA8` → **`8012811C`**), party builder `80129F20` → `8012E0E8`,
+battle generator `801F9F78` → `801FE824`, shadow check `8011FC74` → `80123DE8`.
+The OT setter is instruction-for-instruction identical between builds apart from
+`bl` targets.
+
 Field indices used by `801254B4` / read by `8012640C`
 (`zz_battle_pokemon_get_value_with_id_r5`):
 
