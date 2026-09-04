@@ -1,0 +1,90 @@
+Pokémon Colosseum — Force shadow Pokémon to always become shiny once caught
+US / GC6E01  (converted from the PAL / GC6P01 original)
+Written 2026-09-04.  Save-base global resolved 2026-09-04.
+See Claude Assets/handoffs/2026-09-04_1716_pal-to-us-force-shiny-shadow.md
+    Claude Assets/handoffs/2026-09-04_1802_resolve-us-save-base-pointer.md
+
+
+-------------------------------------------------------------------------------
+US / GC6E01  — FINAL  *** CONFIRMED WORKING IN-GAME 2026-09-04 ***
+-------------------------------------------------------------------------------
+C2124410 00000004
+38C00001 3CE08047
+60E7ADB8 80E70000
+80E7009C 54E7803E
+9421FFC0 00000000
+
+Disassembly (hook = first instruction of the PID generator):
+    li     r6, 1                ; shiny flag argument = forced shiny
+    lis    r7, 0x8047
+    ori    r7, r7, 0xADB8       ; r7 = &saveBasePtr        (US global)
+    lwz    r7, 0(r7)            ; r7 = saveBase
+    lwz    r7, 0x9C(r7)         ; r7 = player trainer ID dword
+    rotlwi r7, r7, 16           ; swap halves into the order this fn expects
+    stwu   r1, -0x40(r1)        ; the overwritten original instruction
+    (00000000 = padding to a whole 8-byte line)
+
+ori zero-extends its immediate, so the global splits straight down the middle:
+0x8047ADB8 -> lis 0x8047 / ori 0xADB8.  (Contrast the lis/lwz form used in
+all_new_pokemon_shiny_US.txt, where the displacement sign-extends.)
+
+
+-------------------------------------------------------------------------------
+ORIGINAL — PAL / GC6P01
+-------------------------------------------------------------------------------
+C2128584 00000004
+38C00001 3CE0804C
+60E78268 80E70000
+80E7009C 54E7803E
+9421FFC0 00000000
+
+    li     r6, 1
+    lis    r7, 0x804C
+    ori    r7, r7, 0x8268       ; r7 = &saveBasePtr        (PAL global)
+    lwz    r7, 0(r7)
+    lwz    r7, 0x9C(r7)
+    rotlwi r7, r7, 16
+    stwu   r1, -0x40(r1)
+
+r7 must be overridden because the caller passes the *AI trainer's* ID.  A PID
+rolled shiny against that would stop being shiny the moment you owned it.
+
+
+-------------------------------------------------------------------------------
+CONVERSION RECORD
+-------------------------------------------------------------------------------
+Hook:    PAL 0x80128584 -> US 0x80124410
+         US symbol: zz_generate_pid_gender_r4_nature_r5_shiny_r6_trainer_id_r7
+         size 0x4B4 in both builds, inside a 95-function exact-size alignment
+         run.  The annotated US name independently confirms r6 = shiny flag and
+         r7 = trainer ID.
+
+Global:  PAL 0x804C8268 -> US 0x8047ADB8   (originally supplied; since confirmed
+         by the NTSC-U WiiRD table and by disassembling the setter — see below)
+
+
+-------------------------------------------------------------------------------
+VERIFIED against a US MRAM dump (2026-09-04)
+-------------------------------------------------------------------------------
+* 0x80124410 reads 9421FFC0 (stwu r1,-0x40(r1)).  The code's last line is
+  correct.
+* The function's prologue is
+      stwu r1,-0x40(r1) / mflr r0 / stw r0,0x44(r1) / stmw r21,0x14(r1)
+      mr. r24,r3 / mr r25,r4 / mr r26,r5 / mr r27,r6
+  i.e. r4 = gender, r5 = nature, r6 = shiny, exactly as the symbol name says.
+  Setting r6 = 1 at the hook is correct and lands before the callee reads it.
+* The hook address 0x80124410 is corroborated from outside: the PAL author's
+  own US conversion of the all-new-shiny code patches 0x8012442C, which is
+  0x80124410 + 0x1C — the mr r27,r6 in this function's prologue.  That only
+  makes sense if the function base is 0x80124410, where this code hooks.
+* The save-base global 0x8047ADB8 is confirmed independently:
+  savedataBiosSetNowSavedataPtr (0x80128E14) is
+      cmplwi r3,0 / beqlr / stw r3,-0x5A68(r13) / blr
+  with r13 = 0x80480820, so the global is 0x80480820 - 0x5A68 = 0x8047ADB8.
+
+-------------------------------------------------------------------------------
+PREREQUISITE
+-------------------------------------------------------------------------------
+The Action Replay code handler NOP patches must also be enabled, and Dolphin
+must be in JIT64 SC mode (not Cached Interpreter).  The US set is resolved —
+see Claude Output/codes/ar_codehandler_nop.txt.

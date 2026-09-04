@@ -1,0 +1,347 @@
+******************************************************************
+* Pokémon Colosseum NTSC-U Action Replay Modifier & Offset Table *
+******************************************************************
+
+=======================
+OUT OF BATTLE MODIFIERS
+=======================
+
+Trainer
+
+4247ADB8 0038xxxx - Trainer Name, 1st Letter
+4247ADB8 0039xxxx - Trainer Name, 2nd Letter
+4247ADB8 003Axxxx - Trainer Name, 3rd Letter
+4247ADB8 003Bxxxx - Trainer Name, 4th Letter
+4247ADB8 003Cxxxx - Trainer Name, 5th Letter
+4247ADB8 003Dxxxx - Trainer Name, 6th Letter
+4247ADB8 003Exxxx - Trainer Name, 7th Letter
+4247ADB8 003Fxxxx - Trainer Name, 8th Letter
+
+0041 = 'A' ... 005A = 'Z' ... 0061 = 'a' ... 007A = 'z'
+
+4247ADB8 004Exxxx - Trainer Secret ID
+4247ADB8 004Fxxxx - Trainer ID
+
+Pokemon 1
+
+4247ADB8 0050xxxx - Pokemon Modifier
+
+4247ADB8 0052xxxx - Pokemon ID (High) | Used for: Shiny, Gender,
+4247ADB8 0053xxxx - Pokemon ID (Low)  | Unown Shape and Nature
+
+4047ADB8 0000A7xx - Gender
+
+Different Pokemon have different ranges for gender:
+
+No Gender     = 00 ... FF
+Always Female = 00 ... FF
+Always Male   = 00 ... FF
+
+12.5% Female & 87.5% Male: Female = 00 ... 1E  Male = 1F ... FF
+25%   Female & 75%   Male: Female = 00 ... 3E  Male = 3F ... FF
+50%   Female & 50%   Male: Female = 00 ... 7E  Male = 7F ... FF
+75%   Female & 25%   Male: Female = 00 ... BE  Male = BF ... FF
+
+4047ADB8 0000A8xx - Came From (01 = Fire, 02 = Leaf, ... 08 = Sapphire, 09 = Ruby, 0A = Emerald, 0B = Colosseum/XD)
+
+4047ADB8 0000AAxx - Original Font (01 = Japanese, 02 = English, 03 = German, 04 = French, 05 = Italian, 06 = Spanish)
+4047ADB8 0000ABxx - Actual Font
+
+4247ADB8 0056xxxx - Location Caught
+4047ADB8 0000AExx - Pokemon Level Met
+4047ADB8 0000AFxx - Ball Caught With        (01 = Master Ball, ... 0C = Premier Ball)
+4047ADB8 0000B0xx - Original Trainer Gender (00 = Male, 01 = Female)
+
+4247ADB8 005Axxxx - Original Trainer Secret ID
+4247ADB8 005Bxxxx - Original Trainer ID
+
+4247ADB8 005Cxxxx - Original Trainer Name, 1st Letter
+4247ADB8 005Dxxxx - Original Trainer Name, 2nd Letter
+4247ADB8 005Exxxx - Original Trainer Name, 3rd Letter
+4247ADB8 005Fxxxx - Original Trainer Name, 4th Letter
+4247ADB8 0060xxxx - Original Trainer Name, 5th Letter
+4247ADB8 0061xxxx - Original Trainer Name, 6th Letter
+4247ADB8 0062xxxx - Original Trainer Name, 7th Letter
+4247ADB8 0063xxxx - Original Trainer Name, 8th Letter
+
+4247ADB8 0067xxxx - Pokemon Name,  1st Letter
+4247ADB8 0068xxxx - Pokemon Name,  2nd Letter
+4247ADB8 0069xxxx - Pokemon Name,  3rd Letter
+4247ADB8 006Axxxx - Pokemon Name,  4th Letter
+4247ADB8 006Bxxxx - Pokemon Name,  5th Letter
+4247ADB8 006Cxxxx - Pokemon Name,  6th Letter
+4247ADB8 006Dxxxx - Pokemon Name,  7th Letter
+4247ADB8 006Exxxx - Pokemon Name,  8th Letter
+4247ADB8 006Fxxxx - Pokemon Name,  9th Letter
+4247ADB8 0070xxxx - Pokemon Name, 10th Letter
+
+4247ADB8 0072xxxx - Original Pokemon Name,  1st Letter
+4247ADB8 0073xxxx - Original Pokemon Name,  2nd Letter
+4247ADB8 0074xxxx - Original Pokemon Name,  3rd Letter
+4247ADB8 0075xxxx - Original Pokemon Name,  4th Letter
+4247ADB8 0076xxxx - Original Pokemon Name,  5th Letter
+4247ADB8 0077xxxx - Original Pokemon Name,  6th Letter
+4247ADB8 0078xxxx - Original Pokemon Name,  7th Letter
+4247ADB8 0079xxxx - Original Pokemon Name,  8th Letter
+4247ADB8 007Axxxx - Original Pokemon Name,  9th Letter
+4247ADB8 007Bxxxx - Original Pokemon Name, 10th Letter
+
+4247ADB8 007Exxxx - EXP Points Modifier (High)
+4247ADB8 007Fxxxx - EXP Points Modifier (Low)
+
+4047ADB8 000100xx - Pokemon Level (Actual)
+
+4047ADB8 000105xx - Status
+
+4247ADB8 008Cxxxx - 1st Move Modifier
+4247ADB8 008Dxxyy - 1st Move PP Modifier (xx = PPs, yy = PPups Used)
+4247ADB8 008Exxxx - 2nd Move Modifier
+4247ADB8 008Fxxyy - 2nd Move PP Modifier
+4247ADB8 0090xxxx - 3rd Move Modifier
+4247ADB8 0091xxyy - 3rd Move PP Modifier
+4247ADB8 0092xxxx - 4th Move Modifier
+4247ADB8 0093xxyy - 4th Move PP Modifier
+
+4247ADB8 0094xxxx - Item Held
+
+4247ADB8 0095xxxx - Hit Points (Actual)
+4247ADB8 0096xxxx - Hit Points (Max)
+4247ADB8 0097xxxx - Attack
+4247ADB8 0098xxxx - Defence
+4247ADB8 0099xxxx - Special Attack
+4247ADB8 009Axxxx - Special Defence
+4247ADB8 009Bxxxx - Speed
+
+4247ADB8 009Cxxxx - EV Hit Points      (0000 ... 00FF)
+4247ADB8 009Dxxxx - EV Attack          (0000 ... 00FF)
+4247ADB8 009Exxxx - EV Defence         (0000 ... 00FF)
+4247ADB8 009Fxxxx - EV Special Attack  (0000 ... 00FF)
+4247ADB8 00A0xxxx - EV Special Defence (0000 ... 00FF)
+4247ADB8 00A1xxxx - EV Speed           (0000 ... 00FF)
+
+4047ADB8 000145xx - DV Hit Points      (00 ... 1F)
+4047ADB8 000147xx - DV Attack          (00 ... 1F)
+4047ADB8 000149xx - DV Defence         (00 ... 1F)
+4047ADB8 00014Bxx - DV Special Attack  (00 ... 1F)
+4047ADB8 00014Dxx - DV Special Defence (00 ... 1F)
+4047ADB8 00014Fxx - DV Speed           (00 ... 1F)
+
+4247ADB8 00A8xxxx - Happiness (0000 = Bad ... 00FF = Good)
+
+4047ADB8 000152xx - CV Cool   (00 ... FF)
+4047ADB8 000153xx - CV Beauty (00 ... FF)
+4047ADB8 000154xx - CV Cute   (00 ... FF)
+4047ADB8 000155xx - CV Smart  (00 ... FF)
+4047ADB8 000156xx - CV Tough  (00 ... FF)
+
+4047ADB8 000157xx - Cool Ribbons (01 = Normal, 02 = Super, 03 = Hyper, 04 = Master)
+4047ADB8 000158xx - Beauty Ribbons
+4047ADB8 000159xx - Cute Ribbons
+4047ADB8 00015Axx - Smart Ribbons
+4047ADB8 00015Bxx - Tough Ribbons
+
+4047ADB8 00015Cxx - CV Luster (00 ... FF)
+
+4047ADB8 00015Dxx - Hall of Fame Member Ribbon (01 = Ribbon)
+4047ADB8 00015Exx - Ribbon for clearing Lv 50 at the Battle Tower
+4047ADB8 00015Fxx - Ribbon for clearing Lv 100 at the Battle Tower
+4047ADB8 000160xx - Ribbon for becoming the model of a painting
+4047ADB8 000161xx - Ribbon awarded for being a hard worker
+4047ADB8 000162xx - Special Ribbon 1
+4047ADB8 000163xx - Special Ribbon 2
+4047ADB8 000164xx - Special Ribbon 3
+4047ADB8 000165xx - Special Ribbon 4
+4047ADB8 000166xx - Special Ribbon 5 (Colosseum/Ribbon awarded for clearing all difficulties)
+4047ADB8 000167xx - Special Ribbon 6 (XD/100-Straight Win Commemorative Ribbon)
+4047ADB8 000168xx - Special Ribbon 7
+
+4047ADB8 00016Axx - Pokerus      (00 = Never Had, 01 ... 0F = Still Has, 10 ... FF = Is Over)
+4047ADB8 00016Cxx - Ability Used (00 = First, 01 = Second)
+4047ADB8 00016Fxx - Marks        (01 = Circle, 02 = Square, 04 = Triangle, 08 = Heart)
+
+4247ADB8 00BCxxxx - Shadow Pokemon ID (0001 = Makuhita, 0002 = Bayleef, ... 0030 = Togetic)
+4247ADB8 00BExxxx - Purification Counter (High)
+4247ADB8 00BFxxxx - Purification Counter (Low)
+
+4047ADB8 00019Bxx - Obedient (01 = Obedient)
+
+Pokemon 2
+
+4247ADB8 00ECxxxx - Pokemon Modifier
+
+4047ADB8 0001E6xx - Pokemon Level Met
+...
+
+Pokemon 3
+
+4247ADB8 0188xxxx - Pokemon Modifier
+...
+
+Pokemon 6
+
+4247ADB8 035Cxxxx - Pokemon Modifier
+...
+
+Box 1 Pokemon 1
+
+4247ADB8 05CExxxx - Pokemon Modifier
+
+4047ADB8 000BAAxx - Pokemon Level Met
+...
+
+Box 1 Pokemon 2
+
+4247ADB8 066Axxxx - Pokemon Modifier
+
+4047ADB8 000CE2xx - Pokemon Level Met
+...
+
+Box 1 Pokemon 30
+
+4247ADB8 177Axxxx - Pokemon Modifier
+
+4047ADB8 002F02xx - Pokemon Level Met
+...
+
+Box 2 Pokemon 1
+
+4247ADB8 1820xxxx - Pokemon Modifier
+
+4047ADB8 00304Exx - Pokemon Level Met
+...
+
+Box 3 Pokemon 1
+
+4247ADB8 2A72xxxx - Pokemon Modifier
+
+4047ADB8 0054F2xx - Pokemon Level Met
+...
+
+Box 3 Pokemon 30
+
+4247ADB8 3C1Exxxx - Pokemon Modifier
+...
+
+Money
+
+4247ADB8 057Axxxx - Money (High) | 00000000 ... 0098967F
+4247ADB8 057Bxxxx - Money (Low)  | (Max 9,999,999 dec)
+
+PokeCoupons
+
+4247ADB8 057Cxxxx - PokeCoupons (High) | 00000000 ... 000F423F
+4247ADB8 057Dxxxx - PokeCoupons (Low)  | (Max 999,999 dec)
+
+PC
+
+Slot 1
+4247ADB8 3CBAxxxx - Item Modifier
+4247ADB8 3CBBxxxx - Quantity (0000 ... 03E7)
+
+Slot 2
+4247ADB8 3CBCxxxx
+4247ADB8 3CBDxxxx
+
+...
+
+Strategy Memo
+
+4247ADB8 4154xxxx - Number of Entries
+
+4247ADB8 4156xxxx - 1st Entry (Full Info = Pokemon Number, Limited Info = Pokemon Number + 0x8000)
+4247ADB8 415Cxxxx - 2nd Entry
+4247ADB8 4162xxxx - 3rd Entry
+
+...
+
+4247ADB8 4A5Cxxxx - 386th Entry
+
+
+===================
+IN BATTLE MODIFIERS
+===================
+
+Trainer
+
+Pokemon 1
+
+0246E928 0000xxxx - Pokemon Modifier
+0446E984 xxxxxxxx - EXP Points Modifier
+0046E988 000000xx - Pokemon Level (Actual)
+
+0046E98D 000000xx - Status
+
+00 = Normal
+03 = Poison (Constant Damage)
+04 = Poison (Increasing Damage)
+05 = Paralyze
+06 = Burn
+07 = Freeze
+08 = Sleep
+
+0246E9A0 0000xxxx - 1st Move Modifier
+0246E9A2 0000xxyy - 1st Move PP Modifier
+0246E9A4 0000xxxx - 2nd Move Modifier
+0246E9A6 0000xxyy - 2nd Move PP Modifier
+0246E9A8 0000xxxx - 3rd Move Modifier
+0246E9AA 0000xxyy - 3rd Move PP Modifier
+0246E9AC 0000xxxx - 4th Move Modifier
+0246E9AE 0000xxyy - 4th Move PP Modifier
+0246E9B0 0000xxxx - Item Held
+0246E9B2 0000xxxx - Hit Points (Actual)
+0246E9B4 0000xxxx - Hit Points (Max)
+0246E9B6 0000xxxx - Attack
+0246E9B8 0000xxxx - Defence
+0246E9BA 0000xxxx - Special Attack
+0246E9BC 0000xxxx - Special Defence
+0246E9BE 0000xxxx - Speed
+0246E9D8 0000xxxx - Happiness
+
+Pokemon 2
+
+0246EA7C 0000xxxx - Pokemon Modifier
+0446EAD8 xxxxxxxx - EXP Points Modifier
+...
+0246EB2C 0000xxxx - Happiness
+
+
+Opponent
+
+Pokemon 1
+
+02473B58 0000xxxx - Pokemon Modifier
+04473BB4 xxxxxxxx - EXP Points Modifier
+...
+02473C30 0000xxxx - Shadow Pokemon Identifier
+04473C34 xxxxxxxx - Purification Counter
+
+Pokemon 2
+
+02473CAC 0000xxxx - Pokemon Modifier
+04473D08 xxxxxxxx - EXP Points Modifier
+...
+02473D84 0000xxxx - Shadow Pokemon Identifier
+04473D88 xxxxxxxx - Purification Counter
+
+
+====
+MISC
+====
+
+Joker Address
+
+80401C28 xxxx - Buttons
+
+0001 = DPad Left
+0002 = DPad Right
+0004 = DPad Down
+0008 = DPad Up
+0010 = Z
+0020 = R
+0040 = L
+0100 = A
+0200 = B
+0400 = X
+0800 = Y
+1000 = Start
+

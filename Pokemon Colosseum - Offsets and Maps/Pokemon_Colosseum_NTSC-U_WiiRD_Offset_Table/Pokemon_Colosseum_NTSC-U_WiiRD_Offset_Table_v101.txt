@@ -1,0 +1,346 @@
+**********************************************************************
+* Pokémon Colosseum NTSC-U WiiRD/Gecko Modifier & Offset Table v1.01 *
+**********************************************************************
+
+=======================
+OUT OF BATTLE MODIFIERS
+=======================
+
+Base Pointer
+
+48000000 8047ADB8
+DE000000 80008180
+
+Trainer
+
+16000070 00000010 - Trainer Name, Letter 1 - 8
+xxxxxxxx xxxxxxxx
+xxxxxxxx xxxxxxxx
+
+0041 = 'A' ... 005A = 'Z' ... 0061 = 'a' ... 007A = 'z'
+
+1200009C 0000xxxx - Trainer Secret ID
+1200009E 0000xxxx - Trainer ID
+
+Pokemon 1
+
+120000A0 0000xxxx - Pokemon Modifier
+140000A4 xxxxxxxx - Pokemon ID (Used for: Shiny, Gender, Unown Shape and Nature)
+
+100000A7 000000xx - Gender
+
+Different Pokemon have different ranges for gender:
+
+No Gender     = 00 ... FF
+Always Female = 00 ... FF
+Always Male   = 00 ... FF
+
+12.5% Female & 87.5% Male: Female = 00 ... 1E  Male = 1F ... FF
+25%   Female & 75%   Male: Female = 00 ... 3E  Male = 3F ... FF
+50%   Female & 50%   Male: Female = 00 ... 7E  Male = 7F ... FF
+75%   Female & 25%   Male: Female = 00 ... BE  Male = BF ... FF
+
+100000A8 000000xx - Came From (01 = Fire, 02 = Leaf, ... 08 = Sapphire, 09 = Ruby, 0A = Emerald, 0B = Colosseum/XD)
+
+100000AA 000000xx - Original Font (01 = Japanese, 02 = English, 03 = German, 04 = French, 05 = Italian, 06 = Spanish)
+100000AB 000000xx - Actual Font
+
+120000AC 0000xxxx - Location Caught
+100000AE 000000xx - Pokemon Level Met
+100000AF 000000xx - Ball Caught With        (01 = Master Ball, ... 0C = Premier Ball)
+100000B0 000000xx - Original Trainer Gender (00 = Male, 01 = Female)
+
+120000B4 0000xxxx - Original Trainer Secret ID
+120000B6 0000xxxx - Original Trainer ID
+
+160000B8 00000010 - Original Trainer Name, Letter 1 - 8
+xxxxxxxx xxxxxxxx
+xxxxxxxx xxxxxxxx
+
+160000CE 00000014 - Pokemon Name, Letter 1 - 10
+xxxxxxxx xxxxxxxx
+xxxxxxxx xxxxxxxx
+xxxxxxxx 00000000
+
+160000E4 00000014 - Original Pokemon Name, Letter 1 - 10
+xxxxxxxx xxxxxxxx
+xxxxxxxx xxxxxxxx
+xxxxxxxx 00000000
+
+140000FC xxxxxxxx - EXP Points Modifier
+
+10000100 000000xx - Pokemon Level (Actual)
+
+10000105 000000xx - Status
+10000108 000000xx - Status Duration (00 ... 7F, FF = Infinite)
+1000010A 000000xx - Badly Poison Damage Counter
+
+12000118 0000xxxx - 1st Move Modifier
+1200011A 0000xxyy - 1st Move PP Modifier (xx = PPs, yy = PPups Used)
+1200011C 0000xxxx - 2nd Move Modifier
+1200011E 0000xxyy - 2nd Move PP Modifier
+12000120 0000xxxx - 3rd Move Modifier
+12000122 0000xxyy - 3rd Move PP Modifier
+12000124 0000xxxx - 4th Move Modifier
+12000126 0000xxyy - 4th Move PP Modifier
+
+12000128 0000xxxx - Item Held
+
+1200012A 0000xxxx - Hit Points (Actual)
+1200012C 0000xxxx - Hit Points (Max)
+1200012E 0000xxxx - Attack
+12000130 0000xxxx - Defence
+12000132 0000xxxx - Special Attack
+12000134 0000xxxx - Special Defence
+12000136 0000xxxx - Speed
+
+12000138 0000xxxx - EV Hit Points      (0000 ... 00FF)
+1200013A 0000xxxx - EV Attack          (0000 ... 00FF)
+1200013C 0000xxxx - EV Defence         (0000 ... 00FF)
+1200013E 0000xxxx - EV Special Attack  (0000 ... 00FF)
+12000140 0000xxxx - EV Special Defence (0000 ... 00FF)
+12000142 0000xxxx - EV Speed           (0000 ... 00FF)
+
+10000145 000000xx - DV Hit Points      (00 ... 1F)
+10000147 000000xx - DV Attack          (00 ... 1F)
+10000149 000000xx - DV Defence         (00 ... 1F)
+1000014B 000000xx - DV Special Attack  (00 ... 1F)
+1000014D 000000xx - DV Special Defence (00 ... 1F)
+1000014F 000000xx - DV Speed           (00 ... 1F)
+
+12000150 0000xxxx - Happiness (0000 = Bad ... 00FF = Good)
+
+10000152 000000xx - CV Cool   (00 ... FF)
+10000153 000000xx - CV Beauty (00 ... FF)
+10000154 000000xx - CV Cute   (00 ... FF)
+10000155 000000xx - CV Smart  (00 ... FF)
+10000156 000000xx - CV Tough  (00 ... FF)
+
+10000157 000000xx - Cool Ribbons (01 = Normal, 02 = Super, 03 = Hyper, 04 = Master)
+10000158 000000xx - Beauty Ribbons
+10000159 000000xx - Cute Ribbons
+1000015A 000000xx - Smart Ribbons
+1000015B 000000xx - Tough Ribbons
+
+1000015C 000000xx - CV Luster (00 ... FF)
+
+1000015D 000000xx - Hall of Fame Member Ribbon (01 = Ribbon)
+1000015E 000000xx - Ribbon for clearing Lv 50 at the Battle Tower
+1000015F 000000xx - Ribbon for clearing Lv 100 at the Battle Tower
+10000160 000000xx - Ribbon for becoming the model of a painting
+10000161 000000xx - Ribbon awarded for being a hard worker
+10000162 000000xx - Special Ribbon 1
+10000163 000000xx - Special Ribbon 2
+10000164 000000xx - Special Ribbon 3
+10000165 000000xx - Special Ribbon 4
+10000166 000000xx - Special Ribbon 5 (Colosseum/Ribbon awarded for clearing all difficulties)
+10000167 000000xx - Special Ribbon 6 (XD/100-Straight Win Commemorative Ribbon)
+10000168 000000xx - Special Ribbon 7
+
+1000016A 000000xx - Pokerus      (00 = Never Had, 01 ... 0F = Still Has, 10 ... FF = Is Over)
+1000016C 000000xx - Ability Used (00 = First, 01 = Second)
+1000016F 000000xx - Marks        (01 = Circle, 02 = Square, 04 = Triangle, 08 = Heart)
+
+10000170 000000xx - Pokerus Counter
+
+12000178 0000xxxx - Shadow Pokemon ID (0001 = Makuhita, 0002 = Bayleef, ... 0030 = Togetic)
+1400017C xxxxxxxx - Purification Counter
+12000188 0000xxxx - Hyper Mode (0000 = No, 003E = Yes)
+
+1000019B 000000xx - Obedient (01 = Obedient)
+
+Pokemon 2
+
+120001D8 0000xxxx - Pokemon Modifier
+
+100001E6 000000xx - Pokemon Level Met
+...
+
+Pokemon 3
+
+12000310 0000xxxx - Pokemon Modifier
+...
+
+Pokemon 6
+
+120006B8 0000xxxx - Pokemon Modifier
+...
+
+Box 1 Pokemon 1
+
+12000B9C 0000xxxx - Pokemon Modifier
+
+10000BAA 000000xx - Pokemon Level Met
+...
+
+Box 1 Pokemon 2
+
+12000CD4 0000xxxx - Pokemon Modifier
+
+10000CE2 000000xx - Pokemon Level Met
+...
+
+Box 1 Pokemon 30
+
+12002EF4 0000xxxx - Pokemon Modifier
+
+10002F02 000000xx - Pokemon Level Met
+...
+
+Box 2 Pokemon 1
+
+12003040 0000xxxx - Pokemon Modifier
+
+1000304E 000000xx - Pokemon Level Met
+...
+
+Box 3 Pokemon 1
+
+120054E4 0000xxxx - Pokemon Modifier
+
+100054F2 000000xx - Pokemon Level Met
+...
+
+Box 3 Pokemon 30
+
+1200783C 0000xxxx - Pokemon Modifier
+...
+
+PokeDollars
+
+14000AF4 xxxxxxxx - PokeDollars (00000000 ... 0098967F, Max 9,999,999 dec)
+
+PokeCoupons
+
+14000AF8 xxxxxxxx - PokeCoupons (00000000 ... 000F423F, Max 999,999 dec)
+
+PC
+
+Slot 1
+12007974 0000xxxx - Item Modifier
+12007976 0000xxxx - Quantity (0000 ... 03E7)
+
+Slot 2
+12007978 0000xxxx
+1200797A 0000xxxx
+
+...
+
+Strategy Memo
+
+120082A8 0000xxxx - Number of Entries
+
+120082AC 0000xxxx - 1st Entry (Full Info = Pokemon Number, Limited Info = Pokemon Number + 0x8000)
+120082B8 0000xxxx - 2nd Entry
+120082C4 0000xxxx - 3rd Entry
+
+...
+
+120094B8 0000xxxx - 386th Entry
+
+
+E0000000 80008000
+
+
+===================
+IN BATTLE MODIFIERS
+===================
+
+Trainer
+
+Pokemon 1
+
+0246E928 0000xxxx - Pokemon Modifier
+0446E984 xxxxxxxx - EXP Points Modifier
+0046E988 000000xx - Pokemon Level (Actual)
+
+0046E98D 000000xx - Status
+
+00 = Normal
+03 = Poison (Constant Damage)
+04 = Badly Poison (Increasing Damage)
+05 = Paralyze
+06 = Burn
+07 = Freeze
+08 = Sleep
+
+0046E990 000000xx - Status Duration (00 ... 7F, FF = Infinite)
+0046E992 000000xx - Badly Poison Damage Counter
+
+0246E9A0 0000xxxx - 1st Move Modifier
+0246E9A2 0000xxyy - 1st Move PP Modifier
+0246E9A4 0000xxxx - 2nd Move Modifier
+0246E9A6 0000xxyy - 2nd Move PP Modifier
+0246E9A8 0000xxxx - 3rd Move Modifier
+0246E9AA 0000xxyy - 3rd Move PP Modifier
+0246E9AC 0000xxxx - 4th Move Modifier
+0246E9AE 0000xxyy - 4th Move PP Modifier
+0246E9B0 0000xxxx - Item Held
+0246E9B2 0000xxxx - Hit Points (Actual)
+0246E9B4 0000xxxx - Hit Points (Max)
+0246E9B6 0000xxxx - Attack
+0246E9B8 0000xxxx - Defence
+0246E9BA 0000xxxx - Special Attack
+0246E9BC 0000xxxx - Special Defence
+0246E9BE 0000xxxx - Speed
+0246E9D8 0000xxxx - Happiness
+
+0246EA00 0000xxxx - Shadow Pokemon Identifier
+0446EA04 xxxxxxxx - Purification Counter
+0246EA10 0000xxxx - Hyper Mode
+
+Pokemon 2
+
+0246EA7C 0000xxxx - Pokemon Modifier
+0446EAD8 xxxxxxxx - EXP Points Modifier
+...
+0246EB2C 0000xxxx - Happiness
+0246EB54 0000xxxx - Shadow Pokemon Identifier
+0446EB58 xxxxxxxx - Purification Counter
+0246EB64 0000xxxx - Hyper Mode
+
+
+Opponent
+
+Pokemon 1
+
+02473B58 0000xxxx - Pokemon Modifier
+04473BB4 xxxxxxxx - EXP Points Modifier
+...
+02473C30 0000xxxx - Shadow Pokemon Identifier
+04473C34 xxxxxxxx - Purification Counter
+02473C40 0000xxxx - Hyper Mode
+
+Pokemon 2
+
+02473CAC 0000xxxx - Pokemon Modifier
+04473D08 xxxxxxxx - EXP Points Modifier
+...
+02473D84 0000xxxx - Shadow Pokemon Identifier
+04473D88 xxxxxxxx - Purification Counter
+02473D94 0000xxxx - Hyper Mode
+
+
+====
+MISC
+====
+
+Button Activator
+28401C28 yyyyxxxx
+
+yyyy = Mask
+xxxx = Buttons
+
+0001 = DPad Left
+0002 = DPad Right
+0004 = DPad Down
+0008 = DPad Up
+0010 = Z
+0020 = R
+0040 = L
+0100 = A
+0200 = B
+0400 = X
+0800 = Y
+1000 = Start
+

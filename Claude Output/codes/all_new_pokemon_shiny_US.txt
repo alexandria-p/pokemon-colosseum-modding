@@ -1,0 +1,142 @@
+Pokémon Colosseum — All newly generated Pokémon are shiny
+US / GC6E01  (converted from the PAL / GC6P01 original)
+Written 2026-09-04.  See Claude Assets/handoffs/2026-09-04_1748_all-new-pokemon-shiny-us.md
+
+
+-------------------------------------------------------------------------------
+ORIGINAL — PAL / GC6P01
+-------------------------------------------------------------------------------
+04125EB8 38A00001
+041285A0 3B600001
+0412957C 38600001
+0412B440 38000001
+C21FEC90 00000005
+7F27CB78 3CC08013
+A0C6E140 2806547F
+40820010 3CC0804D
+80C68268 80E6009C
+60000000 00000000
+
+Part 1 — four 32-bit code patches, each forcing a shiny flag to 1:
+    80125EB8  li r5,  1
+    801285A0  li r27, 1     ; PID generator +0x1C — the r6 shiny arg parked in r27
+    8012957C  li r3,  1     ; inside the in-battle shiny check
+    8012B440  li r0,  1     ; inside battle_pokemon_get_value_with_id
+
+Part 2 — C2 hook, mid-function at PID-generator-caller +0x46C:
+    mr     r7, r25          ; the original overwritten instruction
+    lis    r6, 0x8013
+    lhz    r6, -0x1EC0(r6)  ; halfword at 0x8012E140 — a game-code fingerprint
+    cmplwi r6, 0x547F       ; PAL build guard: top half of an rlwinm r31,r3,...
+    bne    +0x10            ; wrong build -> skip, leave r7 = r25
+    lis    r6, 0x804D
+    lwz    r6, 0x8268(r6)   ; 0x8268 sign-extends negative:
+                            ;   0x804D0000 - 0x7D98 = 0x804C8268 = &saveBasePtr
+    lwz    r7, 0x9C(r6)     ; r7 = player trainer ID dword (raw, NOT swapped)
+    nop                     ; branch target
+
+Note: this hook wants the trainer ID dword raw. The force-shadow-shiny code
+hooks a different function and needs the halves swapped (rotlwi r7,r7,16).
+Same save field, two different consumers — don't copy one into the other.
+
+The 0x547F guard is why this code fails safe rather than crashing on a
+non-PAL build: it never reaches the hardcoded pointer.
+
+
+-------------------------------------------------------------------------------
+US / GC6E01
+-------------------------------------------------------------------------------
+Address translation (Claude Assets/tools/map_convert.py), all conclusive:
+
+    PAL 80125EB8 -> US 80121D44   [+0x12C into a 0x428 fn, run 95]
+    PAL 801285A0 -> US 8012442C   [+0x1C into zz_generate_pid_..._trainer_id_r7, run 95]
+    PAL 8012957C -> US 80125408   [+0x78 into a 0x94 fn, run 95]
+    PAL 8012B440 -> US 801272CC   [+0xEC0 into zz_battle_pokemon_get_value_with_id_r5, run 95]
+    PAL 801FEC90 -> US 801FA3E4   [+0x46C into zz_gen_battle_pokemon_from_data_table?, run 123]
+    PAL 8012E140 -> US 80129F78   [guard fingerprint, +0x58 into a 0x16C fn, run 23]
+
+--- FINAL ---------------------------------------------------------------------
+04121D44 38A00001
+0412442C 3B600001
+04125408 38600001
+041272CC 38000001
+C21FA3E4 00000005
+7F27CB78 3CC08013
+A0C69F78 2806547F
+40820010 3CC08048
+80C6ADB8 80E6009C
+60000000 00000000
+
+Part 2 disassembly:
+    mr     r7, r25          ; the original overwritten instruction
+    lis    r6, 0x8013
+    lhz    r6, 0x9F78(r6)   ; halfword at 0x80129F78 — build fingerprint
+    cmplwi r6, 0x547F
+    bne    +0x10            ; wrong build -> skip, leave r7 = r25
+    lis    r6, 0x8048
+    lwz    r6, 0xADB8(r6)   ; 0xADB8 sign-extends negative:
+                            ;   0x80480000 - 0x5248 = 0x8047ADB8 = &saveBasePtr
+    lwz    r7, 0x9C(r6)     ; r7 = player trainer ID dword (raw, NOT swapped)
+    nop                     ; branch target
+
+  Guard re-targeted: lis r6,0x8013 / lhz r6,0x9F78(r6) reads 0x80129F78.
+  (0x80130000 - 0x6088 = 0x80129F78; 0x9F78 sign-extends to -0x6088.)
+
+  Global 0x8047ADB8 as an lis/lwz pair.  lwz's displacement sign-extends, so
+  the low halfword 0xADB8 (>= 0x8000) forces lis of high+1 = 0x8048 — the same
+  correction the PAL original makes with 804D / 8268 for 0x804C8268.
+  (The force-shadow-shiny code uses ori instead, which zero-extends, so there
+  the split is a plain 8047 / ADB8.)
+
+--- EXTERNALLY CONFIRMED (2026-09-04) -----------------------------------------
+The PAL code's creator supplied their own US conversion.  It is byte-for-byte
+identical to the block above — all 10 lines, no differences.
+
+Independently validated by that match:
+  * all six translated addresses (four 04 targets, the C2 hook, the guard
+    fingerprint) — i.e. Claude Assets/tools/map_convert.py's output
+  * the guard re-target encoding A0C69F78 (lis r6,0x8013 / lhz r6,0x9F78)
+  * the sign-extension correction 3CC08048 / 80C6ADB8 — using lis 0x8047 here
+    would have produced a pointer 0x10000 off
+  * the line count 00000005
+
+--- WHICH WRITE DOES WHAT -----------------------------------------------------
+Ralf publishes a toggle variant, "All Pokemon Are Shiny On/Off", that uses only
+THREE of the four writes -- 80121D44, 80125408, 801272CC -- and labels it
+"GFX only".  So those three are the display-side shiny checks, and
+
+    0412442C 3B600001    (li r27, 1 over the mr r27, r6 in the PID generator)
+
+is the write that actually changes the rolled PID.  If you want genuinely shiny
+Pokemon rather than merely shiny-looking ones, that is the line that matters.
+
+This code is published by Ralf as "Shiny Nation" -- identical to the block
+above, a third independent confirmation of the conversion.
+
+--- PREREQUISITE --------------------------------------------------------------
+The Action Replay code handler NOP patches must also be enabled, and Dolphin
+must be in JIT64 SC mode (not Cached Interpreter).  The US set is resolved —
+see Claude Output/codes/ar_codehandler_nop.txt.
+
+--- VERIFIED against a US MRAM dump (2026-09-04) -------------------------------
+* Guard word: 0x80129F78 reads 547F063E, i.e. rlwinm r31, r3, 0, 24, 31.  The
+  halfword is 0x547F, so the cmplwi matches and the guard passes on US.
+* Hook site: 0x801FA3E4 reads 7F27CB78 (mr r7, r25) — exactly the instruction
+  Part 2 re-emits as its first line.
+* The hook really does precede the PID generator call:
+      801FA3E4  mr   r7, r25       <-- hook
+      801FA3E8  li   r6, 0
+      801FA3EC  bl   0x80124410    <-- the PID generator
+  Note the li r6,0 at 801FA3E8: setting the shiny flag in r6 from this C2 would
+  be wiped immediately.  That is why the flag is forced by the 04 write inside
+  the callee at 8012442C instead, and why Part 2 only touches r7.
+* The four 04 targets currently hold the boolean-producing instruction each
+  patch replaces:
+      80121D44  rlwinm r5, r0, 1, 31, 31   -> li r5, 1
+      8012442C  mr     r27, r6             -> li r27, 1
+      80125408  rlwinm r3, r0, 1, 31, 31   -> li r3, 1
+      801272CC  rlwinm r0, r0, 1, 31, 31   -> li r0, 1
+  The three rlwinm sites share one idiom (xor / cntlzw / slw / rlwinm) — the
+  same shiny test compiled in three places.
+* Save-base global 0x8047ADB8 confirmed via savedataBiosSetNowSavedataPtr
+  (0x80128E14): stw r3, -0x5A68(r13) with r13 = 0x80480820.

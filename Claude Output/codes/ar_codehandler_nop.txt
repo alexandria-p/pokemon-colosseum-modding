@@ -1,0 +1,72 @@
+Pokémon Colosseum — Action Replay code handler NOP patches (anti-AR defeat)
+Both regions.  Recorded 2026-09-04.
+See Claude Assets/handoffs/2026-09-04_1836_anti-ar-nop-set-us.md
+
+Prerequisite for every Gecko code in this workspace.  Colosseum checks for a
+code handler in memory and will misbehave or refuse to run without these.
+Also required: Dolphin in JIT64 SC mode, not Cached Interpreter.
+
+
+-------------------------------------------------------------------------------
+PAL / GC6P01
+-------------------------------------------------------------------------------
+04005614 60000000
+04005D1C 60000000
+04005E48 60000000
+040387E4 60000000
+040388D4 60000000
+0403898C 60000000
+0426AF80 000034E0
+0426AF84 000034E4
+
+
+-------------------------------------------------------------------------------
+US / GC6E01
+-------------------------------------------------------------------------------
+04005614 60000000
+04005C24 60000000
+04005D50 60000000
+04036598 60000000
+04036688 60000000
+04036740 60000000
+042663A0 000034E0
+042663A4 000034E4
+
+
+-------------------------------------------------------------------------------
+CORRESPONDENCE
+-------------------------------------------------------------------------------
+The first six lines write nop (60000000) over a check.  The last two write
+data values, not instructions — the values are identical in both regions, only
+the destination moves.
+
+  PAL         US          how it was established
+  --------    --------    ----------------------------------------------------
+  80005614    80005614    identity — same address in both builds
+  80005D1C    80005C24    GSgfxResetUpdate - 0x18  (PAL 80005D34, US 80005C3C)
+  80005E48    80005D50    +0x6C into mainAntiActionReplay
+                            (PAL 80005DDC <-> US 80005CE4), map_convert run 5
+  800387E4    80036598    map_convert, run 14
+  800388D4    80036688    map_convert, run 14
+  8003898C    80036740    map_convert, run 14
+  8026AF80    802663A0    .text end + 0x44  (PAL 8026AF3C, US 8026635C)
+  8026AF84    802663A4    .text end + 0x48
+
+All eight US values were supplied independently and agree with the derivations
+above, including the three that map_convert.py could not resolve on its own.
+
+
+-------------------------------------------------------------------------------
+NOTE — map_convert.py false negatives in this region
+-------------------------------------------------------------------------------
+The size-sequence aligner reported "NO ALIGNED COUNTERPART" for 80005614 and
+80005D1C.  That is a false negative, not a wrong answer: the containing
+functions differ slightly in size between builds
+
+    zz_00055e0_   PAL 0xE8   US 0xE4
+    zz_00057d0_   PAL 0x564  US 0x48C
+
+so the aligner refuses to pair functions that are plainly counterparts.  Below
+roughly 0x80006000 the two builds diverge enough that size alignment stops
+working.  Fall back to anchoring on a symbol that is *named* in both maps —
+GSgfxResetUpdate did the job here — and offset from it by hand.
