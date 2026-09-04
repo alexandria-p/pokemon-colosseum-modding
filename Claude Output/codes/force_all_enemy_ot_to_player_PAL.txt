@@ -1,0 +1,136 @@
+Pokémon Colosseum — Force ALL generated Pokémon's OT to the player
+Give every Pokémon built by the trainer-party generator the PLAYER's OT Trainer
+ID / Secret ID, not just shadow Pokémon.
+
+PAL / GC6P01.  Written 2026-09-04.  For testing.
+
+This is codes/fix_shadow_shiny_glitch_PAL.txt with the shadow gate REMOVED.
+Use one or the other, never both -- they hook the same address.
+
+
+-------------------------------------------------------------------------------
+THE CODE            *** CONFIRMED WORKING IN-GAME 2026-09-05 ***
+-------------------------------------------------------------------------------
+C212811C 00000005
+281A0000 41820020
+3D60804C 616B8268
+816B0000 280B0000
+4182000C 818B009C
+919A0014 BB410008
+
+Disassembly:
+    cmplwi r26, 0            ; r26 = the Pokemon record being built
+    beq    skip              ; null record -> do nothing
+    lis    r11, 0x804C
+    ori    r11, r11, 0x8268  ; r11 = &saveBasePtr   (PAL 0x804C8268)
+    lwz    r11, 0(r11)       ; r11 = save base
+    cmplwi r11, 0
+    beq    skip              ; no save loaded yet -> do nothing
+    lwz    r12, 0x9C(r11)    ; player's (SID << 16) | TID
+    stw    r12, 0x14(r26)    ; record OT SID (+0x14) and OT TID (+0x16)
+  skip:
+    lmw    r26, 0x8(r1)      ; the overwritten original instruction
+
+10 instructions = 5 lines exactly, no padding needed.  Both branches target
+0x80128140, the re-emitted lmw, and are PC-relative within the block.
+
+The only difference from the shadow-gated version is the three removed
+instructions:
+
+    lhz    r12, 0xD8(r26)    ; Shadow Pokemon ID
+    cmplwi r12, 0
+    beq    skip
+
+and the branch offsets and line count adjusted to suit.
+
+
+-------------------------------------------------------------------------------
+DIFFERENCE FROM THE US BUILD
+-------------------------------------------------------------------------------
+Only two things, as with every port in this project:
+
+    hook    US 0x80123FA8   ->   PAL 0x8012811C
+    global  US 0x8047ADB8   ->   PAL 0x804C8268
+              (lis 0x8047 / ori 0xADB8  ->  lis 0x804C / ori 0x8268)
+
+The record offsets (+0x14 OT SID/TID) and the save offset (+0x9C) are
+region-independent.  ori zero-extends, so no sign-extension correction is needed
+in either region.
+
+
+-------------------------------------------------------------------------------
+HOW IT WORKS
+-------------------------------------------------------------------------------
+The player's ID dword at saveBase+0x9C is stored as (SID << 16) | TID, and a
+Pokemon record stores OT SID at +0x14 and OT TID at +0x16 -- the SAME halfword
+order.  So a single lwz/stw pair copies both fields, with no shifting or masking.
+
+The hook, 0x8012811C, is the exit of the PAL OT-setter function at 0x80128064,
+which is instruction-for-instruction identical to the US one apart from bl
+targets.  At that point r26 still holds the record and is not reloaded until the
+instruction we re-emit.
+
+
+-------------------------------------------------------------------------------
+SCOPE — read this before drawing conclusions from a test
+-------------------------------------------------------------------------------
+This is NOT precisely "all enemy Pokemon".  It is every Pokemon whose OT is set
+through the OT setter (PAL 0x80128064).  In the US build the callers are the
+debug-menu path, trainer party generation, four e-Card / bonus gift setups and
+one unidentified site; the PAL build has the same structure.
+
+So in normal play it covers enemy trainers' Pokemon AND the e-Card / bonus gift
+Pokemon.  Those gift Pokemon would lose their distinctive OT IDs while this is
+enabled -- turn it off before collecting them if you care.
+
+The player's own party is not built through this path, so your Pokemon are
+unaffected.
+
+
+-------------------------------------------------------------------------------
+WHAT IT DOES AND DOESN'T CHANGE
+-------------------------------------------------------------------------------
+It rewrites the OT SID/TID stored on the record.  It does NOT touch the PID.
+
+An enemy Pokemon will therefore appear shiny only if its existing PID happens to
+be shiny against your TID/SID -- roughly a 1 in 8192 chance per Pokemon, unless
+you also run a force-shiny code.
+
+Note also that a shadow Pokemon's PID is rolled ONCE, at the first encounter,
+and then persisted in the save.  Enabling a force-shiny code after that first
+encounter cannot change it.
+
+
+-------------------------------------------------------------------------------
+PREREQUISITES
+-------------------------------------------------------------------------------
+The PAL Action Replay codehandler NOP patches:
+
+    04005614 60000000
+    04005D1C 60000000
+    04005E48 60000000
+    040387E4 60000000
+    040388D4 60000000
+    0403898C 60000000
+    0426AF80 000034E0
+    0426AF84 000034E4
+
+and Dolphin in JIT64 SC mode, not Cached Interpreter.
+
+
+-------------------------------------------------------------------------------
+VERIFICATION
+-------------------------------------------------------------------------------
+Against the PAL MRAM dump:
+  * 0x8012811C holds BB410008 (lmw r26, 0x8(r1)) -- the re-emitted instruction
+  * r26 is the record pointer and is not reloaded until that instruction
+  * both branch offsets land exactly on the re-emitted lmw (0x80128140)
+  * lis 0x804C / ori 0x8268 resolves to 0x804C8268
+  * every instruction encoding round-tripped through a disassembler
+
+Confirmed working in-game on BOTH regions (2026-09-05), tested separately --
+this is not an inference from the other region.
+
+The shadow-gated build this is derived from is also confirmed working.
+
+US counterpart: codes/force_all_enemy_ot_to_player_US.txt

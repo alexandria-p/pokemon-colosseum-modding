@@ -19,16 +19,17 @@ matched around the hit. A run in the dozens is effectively conclusive; a run
 of 1-2 should be treated as a guess and verified in a debugger.
 
 This only works for .text (code). Data / BSS globals are NOT in these maps
-and must be found another way (see Claude Output/PROJECT_NOTES.md).
+and must be found another way (see SKILL.md section 4).
 
 Usage
 -----
-    python "Claude Assets/tools/map_convert.py" 0x80128584    # PAL -> US
-    python "Claude Assets/tools/map_convert.py" --us2pal 0x80124410
+    python scripts/map_convert.py 0x80128584            # PAL -> US
+    python scripts/map_convert.py --us2pal 0x80124410   # US  -> PAL
 
 The two symbol maps are located automatically: $COLO_MAPS_DIR if set, else by
 searching upward from the working directory, else from this script. Filenames
 only need to contain GC6P01 / GC6E01, so moving or renaming them is fine.
+Get the maps from github.com/StarsMmd/Colo-XD-PBR-symbol-maps
 """
 import re, sys, difflib, os
 

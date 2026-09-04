@@ -1,0 +1,124 @@
+Pokémon Colosseum — Force ALL generated Pokémon's OT to the player
+Give every Pokémon built by the trainer-party generator the PLAYER's OT Trainer
+ID / Secret ID, not just shadow Pokémon.
+
+US / GC6E01.  Written 2026-09-04.  For testing.
+
+This is codes/fix_shadow_shiny_glitch_US.txt with the shadow gate REMOVED.
+Use one or the other, never both -- they hook the same address.
+
+
+-------------------------------------------------------------------------------
+THE CODE            *** CONFIRMED WORKING IN-GAME 2026-09-05 ***
+-------------------------------------------------------------------------------
+C2123FA8 00000005
+281A0000 41820020
+3D608047 616BADB8
+816B0000 280B0000
+4182000C 818B009C
+919A0014 BB410008
+
+Disassembly:
+    cmplwi r26, 0            ; r26 = the Pokemon record being built
+    beq    skip              ; null record -> do nothing
+    lis    r11, 0x8047
+    ori    r11, r11, 0xADB8  ; r11 = &saveBasePtr   (US 0x8047ADB8)
+    lwz    r11, 0(r11)       ; r11 = save base
+    cmplwi r11, 0
+    beq    skip              ; no save loaded yet -> do nothing
+    lwz    r12, 0x9C(r11)    ; player's (SID << 16) | TID
+    stw    r12, 0x14(r26)    ; record OT SID (+0x14) and OT TID (+0x16)
+  skip:
+    lmw    r26, 0x8(r1)      ; the overwritten original instruction
+
+10 instructions = 5 lines exactly, no padding needed.  Both branches are
+PC-relative within the block, so they stay correct wherever the codehandler
+copies it.
+
+The only difference from the shadow-gated version is the three removed
+instructions:
+
+    lhz    r12, 0xD8(r26)    ; Shadow Pokemon ID
+    cmplwi r12, 0
+    beq    skip
+
+and the branch offsets and line count adjusted to suit.
+
+
+-------------------------------------------------------------------------------
+HOW IT WORKS
+-------------------------------------------------------------------------------
+The player's ID dword at saveBase+0x9C is stored as (SID << 16) | TID, and a
+Pokemon record stores OT SID at +0x14 and OT TID at +0x16 -- the SAME halfword
+order.  So a single lwz/stw pair copies both fields, with no shifting or masking.
+
+The hook, 0x80123FA8, is the exit of the OT-setter function at 0x80123EF0.
+Hooking the exit rather than the entry matters: the function's own field setters
+run first, so patching arguments on the way in would just be overwritten.  At
+the exit r26 still holds the record and is not reloaded until the instruction
+we re-emit.
+
+
+-------------------------------------------------------------------------------
+SCOPE — read this before drawing conclusions from a test
+-------------------------------------------------------------------------------
+This is NOT precisely "all enemy Pokemon".  It is every Pokemon whose OT is set
+through 0x80123EF0.  Callers found in the US dump:
+
+    800097D8   debug-menu path
+    80129FD0   trainer party generation      <- enemy trainers' Pokemon
+    801306FC   e-Card / bonus gift Pokemon   (Ageto Celebi, OT ID 31121)
+    8013080C   e-Card / bonus gift Pokemon
+    8013092C   e-Card / bonus gift Pokemon
+    80130A14   e-Card / bonus gift Pokemon
+    8025CE54   (unidentified)
+
+So in normal play it covers enemy trainers' Pokemon AND the e-Card / bonus gift
+Pokemon.  Those gift Pokemon would lose their distinctive OT IDs while this is
+enabled -- turn it off before collecting them if you care.
+
+The player's own party is not built through this path, so your Pokemon are
+unaffected.
+
+
+-------------------------------------------------------------------------------
+WHAT IT DOES AND DOESN'T CHANGE
+-------------------------------------------------------------------------------
+It rewrites the OT SID/TID stored on the record.  It does NOT touch the PID.
+
+An enemy Pokemon will therefore appear shiny only if its existing PID happens to
+be shiny against your TID/SID -- roughly a 1 in 8192 chance per Pokemon, unless
+you also run a force-shiny code.
+
+To make enemy shadow Pokemon reliably shiny, pair the shadow-gated version with
+codes/force_shadow_shiny_US.txt instead.  This unconditional build is for
+testing the OT rewrite in isolation.
+
+Note also that a shadow Pokemon's PID is rolled ONCE, at the first encounter,
+and then persisted in the save.  Enabling a force-shiny code after that first
+encounter cannot change it.
+
+
+-------------------------------------------------------------------------------
+PREREQUISITES
+-------------------------------------------------------------------------------
+The US Action Replay codehandler NOP patches (see
+codes/ar_codehandler_nop for gecko codes.txt) and Dolphin in JIT64 SC mode.
+
+
+-------------------------------------------------------------------------------
+VERIFICATION
+-------------------------------------------------------------------------------
+Against the US MRAM dump:
+  * 0x80123FA8 holds BB410008 (lmw r26, 0x8(r1)) -- the re-emitted instruction
+  * r26 is the record pointer and is not reloaded until that instruction
+  * both branch offsets land exactly on the re-emitted lmw (+0x24)
+  * lis 0x8047 / ori 0xADB8 resolves to 0x8047ADB8
+  * every instruction encoding round-tripped through a disassembler
+
+Confirmed working in-game on BOTH regions (2026-09-05), tested separately --
+this is not an inference from the other region.
+
+The shadow-gated build this is derived from is also confirmed working.
+
+PAL counterpart: codes/force_all_enemy_ot_to_player_PAL.txt

@@ -1,90 +1,181 @@
-Pokémon Colosseum — Force shadow Pokémon to always become shiny once caught
-US / GC6E01  (converted from the PAL / GC6P01 original)
-Written 2026-09-04.  Save-base global resolved 2026-09-04.
-See Claude Assets/handoffs/2026-09-04_1716_pal-to-us-force-shiny-shadow.md
-    Claude Assets/handoffs/2026-09-04_1802_resolve-us-save-base-pointer.md
+Pokémon Colosseum — Force shadow Pokémon to roll a shiny PID against the PLAYER
+US / GC6E01.
+
+v2 (2026-09-04) — SHADOW POKEMON ONLY.  v1 is kept at the bottom.
+Pairs with codes/fix_shadow_shiny_glitch_US.txt.
+PAL conversion: codes/force_shadow_shiny_PAL.txt
+
+*** USE ONE VERSION OR THE OTHER.  Do not enable both. ***
 
 
 -------------------------------------------------------------------------------
-US / GC6E01  — FINAL  *** CONFIRMED WORKING IN-GAME 2026-09-04 ***
+v2 — THE CODE  (shadow Pokemon only)
+                    *** CONFIRMED WORKING IN-GAME 2026-09-04 ***
+       shadow-only behaviour independently confirmed by running
+       force_all_enemy_ot_to_player_US alongside it
 -------------------------------------------------------------------------------
+C21FA3E8 00000006
+38C00000 281E0000
+41820024 3D608047
+616BADB8 816B0000
+280B0000 41820010
+80EB009C 54E7803E
+38C00001 60000000
+
+Disassembly:
+    li     r6, 0             ; the overwritten original instruction
+    cmplwi r30, 0            ; r30 = the caller's is-shadow flag
+    beq    done              ; ordinary Pokemon -> leave r6=0, r7=r25 untouched
+    lis    r11, 0x8047
+    ori    r11, r11, 0xADB8  ; r11 = &saveBasePtr  (US 0x8047ADB8)
+    lwz    r11, 0(r11)       ; r11 = save base
+    cmplwi r11, 0
+    beq    done              ; no save loaded -> leave alone
+    lwz    r7, 0x9C(r11)     ; player's (SID << 16) | TID
+    rotlwi r7, r7, 16        ; -> (TID << 16) | SID, the order this fn wants
+    li     r6, 1             ; force shiny
+  done:
+    nop                      ; branch target
+
+12 instructions = 6 lines exactly.  Both branches are PC-relative within the
+block, so they stay correct wherever the codehandler copies it.
+
+
+-------------------------------------------------------------------------------
+WHY THE HOOK MOVED
+-------------------------------------------------------------------------------
+v1 hooked the PID generator itself (0x80124410), which is shared by every
+Pokemon the game rolls -- hence "everything is shiny".
+
+v2 hooks the CALL SITE instead, at 0x801FA3E8 inside
+zz_gen_battle_pokemon_from_data_table? (0x801F9F78):
+
+    801FA398  cmplwi r30, 0
+    801FA39C  beq    0x801FA3D8      ; not a shadow -> roll a new PID
+    801FA3A0  mr     r3, r23
+    801FA3A4  bl     0x801EE8F4      ; does this shadow already have a PID?
+    801FA3B0  bne    0x801FA3D8      ; no -> roll a new PID
+    801FA3B4  bl     0x801EE750      ; YES -> fetch the stored PID
+    801FA3D0  bl     set field 111   ; ...and use it
+    801FA3D4  b      0x801FA408      ; generator skipped entirely
+    801FA3D8  mr     r3, r31
+    801FA3DC  mr     r4, r29
+    801FA3E0  mr     r5, r28
+    801FA3E4  mr     r7, r25         ; OT trainer id argument
+    801FA3E8  li     r6, 0           ; <- HOOK.  the shiny-flag argument.
+    801FA3EC  bl     0x80124410      ; the PID generator
+    801FA408  cmplwi r30, 0          ; r30 tested again to gate shadow setup
+
+r30 is the game's own is-shadow flag: it is loaded once at 0x801FA004 from
+pokemon-data field 19 (`rlwinm r30, r3, 0, 24, 31`), is never written again in
+this function, and the game itself branches on it at 0x801FA398 and 0x801FA408.
+It is live and correct at the hook.
+
+Stars names this same spot in GoD-Tool's Code Snippets CM.swift:
+    shinyLockRAMOffset      = 0x801fa3e8   <- our hook
+    shadowsOnlyLockRAMOffset = 0x801fa3d8
+
+
+-------------------------------------------------------------------------------
+FIRST ROLL ONLY, AND THE PID PERSISTS
+-------------------------------------------------------------------------------
+From the branch structure above:
+
+  * FIRST encounter with a given shadow Pokemon -- 0x801EE8F4 reports no stored
+    PID, so the generator runs and this code forces the roll shiny against the
+    player.  The result is written to field 111 on the record and, when the
+    Pokemon is sent onto the field, into the Strategy Memo in the save.
+
+  * EVERY LATER encounter -- 0x801EE8F4 reports a stored PID, so 0x801EE750
+    fetches it and `b 0x801FA408` skips the generator completely.  This code
+    never runs for that Pokemon again, and does not need to.
+
+0x801EE750 is explicit about where the PID lives:
+
+    lhz   r31, 0xA(r4)      ; entry index, from the shadow table
+    bl    0x801EF1E4        ; -> trainer_get_data_pointer(0, 15)
+    mulli r4, r31, 12       ; 12-byte stride
+    addi  r0, r4, 0x8       ; PID at +0x08
+    lwzx  r3, r3, r0
+
+-- the same 12-byte entry / PID-at-+8 layout as the Strategy Memo, and in the
+US dump the only copy of Makuhita's PID in save memory is its Strategy Memo
+entry.  So the PID is persisted in the save and reused forever after.
+
+Practical consequences:
+  * Turning this code off later does NOT undo a shiny PID already rolled.
+  * Turning it on later does NOT fix a shadow you have already encountered --
+    its PID was fixed at that first encounter.  You need it enabled BEFORE the
+    first encounter with each shadow Pokemon.
+  * It costs nothing to leave enabled; it simply stops mattering per Pokemon
+    once that Pokemon has been met.
+
+The shadow definition table is at [r13 - 0x78B4] (US r13 = 0x80480820, so the
+pointer is at 0x80478F6C; it read 0x808A7AC4 in the dump).  Entries are 0x38
+bytes, bounds-checked to 0x60, with the species at +0x02, level at +0x08 and the
+memo entry index at +0x0A.  Entry 1 is Makuhita (species 0x014F, level 30).
+
+
+-------------------------------------------------------------------------------
+USING IT
+-------------------------------------------------------------------------------
+Enable v2 together with codes/fix_shadow_shiny_glitch_US.txt and the anti-AR NOP
+set, with Dolphin in JIT64 SC mode.
+
+    this code (0x801FA3E8)   -> a shadow's PID is rolled shiny against YOU
+    the glitch fix (0x80123FA8) -> the record carries YOUR OT SID/TID
+
+Together the in-battle check computes OT_TID ^ OT_SID ^ PID_hi ^ PID_lo == 0 and
+the Pokemon renders shiny while the enemy still owns it.
+
+Do NOT also enable "Shiny Nation" / all-new-Pokemon-shiny: it hooks 0x801FA3E4,
+the instruction immediately before this one, and forces every roll shiny, which
+defeats the point of the gate.
+
+
+-------------------------------------------------------------------------------
+VERIFICATION
+-------------------------------------------------------------------------------
+Against the US MRAM dump:
+  * 0x801FA3E8 holds 38C00000 (li r6, 0) -- the re-emitted instruction
+  * r30 is written once, at 0x801FA004, from is-shadow field 19, and is live
+  * both branch offsets land exactly on the trailing nop
+  * every encoding round-tripped through a disassembler
+  * the reuse path (0x801EE8F4 / 0x801EE750) confirmed by disassembly
+
+v2 is CONFIRMED WORKING IN-GAME (2026-09-04).  Its shadow-only scope was
+verified independently: with force_all_enemy_ot_to_player_US enabled (which
+gives every generated Pokemon the player's OT), only the shadow Pokemon showed
+as shiny -- so the r30 gate is doing its job.
+
+v1 below is also confirmed working, and remains the fallback if a case ever
+turns up where the call-site hook is not reached.
+
+
+===============================================================================
+v1 — original, ALL generated Pokemon  (confirmed working in-game 2026-09-04)
+===============================================================================
 C2124410 00000004
 38C00001 3CE08047
 60E7ADB8 80E70000
 80E7009C 54E7803E
 9421FFC0 00000000
 
-Disassembly (hook = first instruction of the PID generator):
     li     r6, 1                ; shiny flag argument = forced shiny
     lis    r7, 0x8047
-    ori    r7, r7, 0xADB8       ; r7 = &saveBasePtr        (US global)
-    lwz    r7, 0(r7)            ; r7 = saveBase
-    lwz    r7, 0x9C(r7)         ; r7 = player trainer ID dword
-    rotlwi r7, r7, 16           ; swap halves into the order this fn expects
-    stwu   r1, -0x40(r1)        ; the overwritten original instruction
-    (00000000 = padding to a whole 8-byte line)
-
-ori zero-extends its immediate, so the global splits straight down the middle:
-0x8047ADB8 -> lis 0x8047 / ori 0xADB8.  (Contrast the lis/lwz form used in
-all_new_pokemon_shiny_US.txt, where the displacement sign-extends.)
-
-
--------------------------------------------------------------------------------
-ORIGINAL — PAL / GC6P01
--------------------------------------------------------------------------------
-C2128584 00000004
-38C00001 3CE0804C
-60E78268 80E70000
-80E7009C 54E7803E
-9421FFC0 00000000
-
-    li     r6, 1
-    lis    r7, 0x804C
-    ori    r7, r7, 0x8268       ; r7 = &saveBasePtr        (PAL global)
+    ori    r7, r7, 0xADB8       ; r7 = &saveBasePtr
     lwz    r7, 0(r7)
     lwz    r7, 0x9C(r7)
     rotlwi r7, r7, 16
-    stwu   r1, -0x40(r1)
+    stwu   r1, -0x40(r1)        ; the overwritten prologue instruction
 
-r7 must be overridden because the caller passes the *AI trainer's* ID.  A PID
-rolled shiny against that would stop being shiny the moment you owned it.
+Hooks the PID generator's first instruction, so it applies to every Pokemon
+generated through 0x80124410, not only shadows.  Kept as a fallback: if v2 ever
+misbehaves, v1 is the known-good reference.
 
-
--------------------------------------------------------------------------------
-CONVERSION RECORD
--------------------------------------------------------------------------------
-Hook:    PAL 0x80128584 -> US 0x80124410
-         US symbol: zz_generate_pid_gender_r4_nature_r5_shiny_r6_trainer_id_r7
-         size 0x4B4 in both builds, inside a 95-function exact-size alignment
-         run.  The annotated US name independently confirms r6 = shiny flag and
-         r7 = trainer ID.
-
-Global:  PAL 0x804C8268 -> US 0x8047ADB8   (originally supplied; since confirmed
-         by the NTSC-U WiiRD table and by disassembling the setter — see below)
-
-
--------------------------------------------------------------------------------
-VERIFIED against a US MRAM dump (2026-09-04)
--------------------------------------------------------------------------------
-* 0x80124410 reads 9421FFC0 (stwu r1,-0x40(r1)).  The code's last line is
-  correct.
-* The function's prologue is
-      stwu r1,-0x40(r1) / mflr r0 / stw r0,0x44(r1) / stmw r21,0x14(r1)
-      mr. r24,r3 / mr r25,r4 / mr r26,r5 / mr r27,r6
-  i.e. r4 = gender, r5 = nature, r6 = shiny, exactly as the symbol name says.
-  Setting r6 = 1 at the hook is correct and lands before the callee reads it.
-* The hook address 0x80124410 is corroborated from outside: the PAL author's
-  own US conversion of the all-new-shiny code patches 0x8012442C, which is
-  0x80124410 + 0x1C — the mr r27,r6 in this function's prologue.  That only
-  makes sense if the function base is 0x80124410, where this code hooks.
-* The save-base global 0x8047ADB8 is confirmed independently:
-  savedataBiosSetNowSavedataPtr (0x80128E14) is
-      cmplwi r3,0 / beqlr / stw r3,-0x5A68(r13) / blr
-  with r13 = 0x80480820, so the global is 0x80480820 - 0x5A68 = 0x8047ADB8.
-
--------------------------------------------------------------------------------
-PREREQUISITE
--------------------------------------------------------------------------------
-The Action Replay code handler NOP patches must also be enabled, and Dolphin
-must be in JIT64 SC mode (not Cached Interpreter).  The US set is resolved —
-see Claude Output/codes/ar_codehandler_nop.txt.
+PAL original this was converted from:
+    C2128584 00000004
+    38C00001 3CE0804C
+    60E78268 80E70000
+    80E7009C 54E7803E
+    9421FFC0 00000000

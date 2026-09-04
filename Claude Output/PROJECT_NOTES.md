@@ -549,6 +549,36 @@ So by the time the OT setter runs, the PID and the shadow fields are already on
 the record — which is what makes a shadow-gated hook at the OT setter's exit
 (`80123FA8`) viable.
 
+### A shadow's PID is rolled ONCE and then persisted
+
+`zz_gen_battle_pokemon_from_data_table?` decides between rolling and reusing:
+
+```
+801FA398  cmplwi r30, 0          ; r30 = is-shadow (loaded once at 801FA004,
+801FA39C  beq    801FA3D8        ;        from pokemon-data field 19)
+801FA3A4  bl     801EE8F4        ; does this shadow already have a PID?
+801FA3B0  bne    801FA3D8        ; no  -> roll
+801FA3B8  bl     801EE750        ; yes -> fetch the stored PID
+801FA3D0  bl     set field 111
+801FA3D4  b      801FA408        ;        generator skipped entirely
+801FA3D8  ...    li r6, 0 ; bl 80124410   ; roll a new PID
+```
+
+`801EE750` reads it as `base + index*12 + 8` where `base` comes from
+`trainer_get_data_pointer(0, 15)` — the same 12-byte stride and PID-at-`+0x08`
+as the Strategy Memo, and in the dump the only save-memory copy of a shadow's
+PID is its memo entry. **So the PID is rolled at the first encounter, saved, and
+reused for good.**
+
+Consequence for any force-shiny code: it must be enabled *before* the first
+encounter with a given shadow Pokémon. Enabling it later cannot change a PID
+that has already been fixed, and disabling it later does not undo one.
+
+**Shadow definition table** — `[r13 - 0x78B4]` (US `r13 = 0x80480820`, so the
+pointer sits at `0x80478F6C`; it read `0x808A7AC4`). `0x38`-byte entries,
+bounds-checked to `0x60`: species at `+0x02`, level at `+0x08`, memo entry index
+at `+0x0A`. Entry 1 is Makuhita (`0x014F`, level 30).
+
 Useful US-only named symbols found while working:
 
 | Address | Symbol |

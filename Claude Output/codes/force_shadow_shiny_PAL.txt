@@ -1,0 +1,149 @@
+Pokémon Colosseum — Force shadow Pokémon to roll a shiny PID against the PLAYER
+PAL / GC6P01.
+
+v2 — SHADOW POKEMON ONLY.  Converted from codes/force_shadow_shiny_US.txt v2,
+which is confirmed working in-game.
+Pairs with codes/fix_shadow_shiny_glitch_PAL.txt.
+
+
+-------------------------------------------------------------------------------
+THE CODE            *** CONFIRMED WORKING IN-GAME 2026-09-05 ***
+-------------------------------------------------------------------------------
+C21FEC94 00000006
+38C00000 281E0000
+41820024 3D60804C
+616B8268 816B0000
+280B0000 41820010
+80EB009C 54E7803E
+38C00001 60000000
+
+Disassembly:
+    li     r6, 0             ; the overwritten original instruction
+    cmplwi r30, 0            ; r30 = the game's own is-shadow flag
+    beq    done              ; ordinary Pokemon -> leave r6=0, r7=r25 untouched
+    lis    r11, 0x804C
+    ori    r11, r11, 0x8268  ; r11 = &saveBasePtr  (PAL 0x804C8268)
+    lwz    r11, 0(r11)       ; r11 = save base
+    cmplwi r11, 0
+    beq    done              ; no save loaded -> leave alone
+    lwz    r7, 0x9C(r11)     ; player's (SID << 16) | TID
+    rotlwi r7, r7, 16        ; -> (TID << 16) | SID, the order this fn wants
+    li     r6, 1             ; force shiny
+  done:
+    nop                      ; branch target (0x801FECC0)
+
+12 instructions = 6 lines exactly.  Both branches are PC-relative within the
+block, so they stay correct wherever the codehandler copies it.
+
+
+-------------------------------------------------------------------------------
+WHAT CHANGED FROM THE US BUILD
+-------------------------------------------------------------------------------
+Only two things:
+
+    hook    US 0x801FA3E8   ->   PAL 0x801FEC94
+    global  US 0x8047ADB8   ->   PAL 0x804C8268
+              (lis 0x8047 / ori 0xADB8  ->  lis 0x804C / ori 0x8268)
+
+Everything else is byte-identical.  ori zero-extends, so no sign-extension
+correction is needed in either region.
+
+Note the hook sits one instruction after 0x801FEC90, which the PAL
+"all new generated Pokemon are shiny" code hooks.  Do NOT enable both.
+
+
+-------------------------------------------------------------------------------
+THE HOOK SITE
+-------------------------------------------------------------------------------
+Inside the PAL battle-Pokemon generator (0x801FE824), the region is
+instruction-for-instruction identical to the US one apart from bl targets:
+
+    801FEC44  cmplwi r30, 0
+    801FEC48  beq    0x801FEC84      ; not a shadow -> roll a new PID
+    801FEC4C  mr     r3, r23
+    801FEC50  bl     0x801F3168      ; does this shadow already have a PID?
+    801FEC5C  bne    0x801FEC84      ; no -> roll a new PID
+    801FEC64  bl     0x801F2FC4      ; YES -> fetch the stored PID
+    801FEC7C  bl     set field 111   ; ...and use it
+    801FEC80  b      0x801FECB4      ; generator skipped entirely
+    801FEC84  mr     r3, r31
+    801FEC88  mr     r4, r29
+    801FEC8C  mr     r5, r28
+    801FEC90  mr     r7, r25         ; OT trainer id argument
+    801FEC94  li     r6, 0           ; <- HOOK.  the shiny-flag argument.
+    801FEC98  bl     0x80128584      ; the PAL PID generator
+    801FECB4  cmplwi r30, 0          ; r30 tested again to gate shadow setup
+
+r30 is the game's own is-shadow flag: written once at 0x801FE8B0
+(`rlwinm r30, r3, 0, 24, 31`, from pokemon-data field 19), never written again in
+this function, and branched on by the game itself at 0x801FEC44 and 0x801FECB4.
+
+0x80128584 is the PAL PID generator -- the address the original PAL
+force-shadow-shiny code hooked directly.  This code sets its arguments at the
+call site instead, which is what makes the shadow gate possible.
+
+
+-------------------------------------------------------------------------------
+FIRST ROLL ONLY, AND THE PID PERSISTS
+-------------------------------------------------------------------------------
+From the branch structure above:
+
+  * FIRST encounter with a given shadow Pokemon -- 0x801F3168 reports no stored
+    PID, so the generator runs and this code forces the roll shiny against the
+    player.  The result is written to field 111 and, when the Pokemon is sent
+    onto the field, into the Strategy Memo in the save.
+
+  * EVERY LATER encounter -- 0x801F3168 reports a stored PID, so 0x801F2FC4
+    fetches it and `b 0x801FECB4` skips the generator completely.  This code
+    never runs for that Pokemon again.
+
+Practical consequences:
+  * enable it BEFORE the first encounter with each shadow Pokemon
+  * enabling it later cannot change a PID that is already fixed
+  * disabling it later does not undo one
+  * leaving it enabled is free
+
+
+-------------------------------------------------------------------------------
+USING IT
+-------------------------------------------------------------------------------
+Enable together with codes/fix_shadow_shiny_glitch_PAL.txt and the PAL anti-AR
+NOP set, with Dolphin in JIT64 SC mode.
+
+    this code (0x801FEC94)         -> a shadow's PID is rolled shiny against YOU
+    the glitch fix (0x8012811C)    -> the record carries YOUR OT SID/TID
+
+Together the in-battle check computes OT_TID ^ OT_SID ^ PID_hi ^ PID_lo == 0 and
+the Pokemon renders shiny while the enemy still owns it.
+
+PAL anti-AR codehandler NOP patches:
+
+    04005614 60000000
+    04005D1C 60000000
+    04005E48 60000000
+    040387E4 60000000
+    040388D4 60000000
+    0403898C 60000000
+    0426AF80 000034E0
+    0426AF84 000034E4
+
+
+-------------------------------------------------------------------------------
+VERIFICATION
+-------------------------------------------------------------------------------
+Against the PAL MRAM dump:
+  * 0x801FEC94 holds 38C00000 (li r6, 0) -- the re-emitted instruction
+  * r30 is written once, at 0x801FE8B0, from is-shadow field 19, and is live
+  * both branch offsets land exactly on the trailing nop (0x801FECC0)
+  * lis 0x804C / ori 0x8268 resolves to 0x804C8268
+  * PAL save +0x9C reads B9EB7002 (SID B9EB, TID 7002); rotlwi 16 -> 7002B9EB
+  * the reuse path (0x801F3168 / 0x801F2FC4) confirmed by disassembly
+  * every encoding round-tripped through a disassembler
+
+Address translation (Claude Assets/tools/map_convert.py):
+    US 801FA3E8 -> PAL 801FEC94, inside a 123-function exact-size run.
+
+Confirmed working in-game on both regions.  The US v2 this was converted from is
+also confirmed, including confirmation that it applies to shadows only (tested
+by running force_all_enemy_ot_to_player alongside it, so that ANY Pokemon with a
+player-shiny PID would have rendered shiny -- only the shadows did).
