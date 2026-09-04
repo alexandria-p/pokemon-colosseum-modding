@@ -6,6 +6,12 @@ def dis(i, pc=0):
     if i==0x4E800021: return "blrl"
     if i==0x7C0802A6: return "mflr r0"
     if op==31 and xo==339 and ((i>>11)&0x3FF)==0x100: return "mflr r%d"%D
+    if op==31 and xo==371:
+        enc=(i>>11)&0x3FF; spr=((enc&31)<<5)|(enc>>5)
+        return "mftb r%d"%D if spr==268 else "mftbu r%d"%D if spr==269 else "mfspr r%d, %d"%(D,spr)
+    if op==31 and xo==339:
+        enc=(i>>11)&0x3FF; spr=((enc&31)<<5)|(enc>>5)
+        return "mfspr r%d, %d"%(D,spr)
     if op==31 and xo==467 and ((i>>11)&0x3FF)==0x100: return "mtlr r%d"%D
     if op==14: return ("li r%d, %d"%(D,s16(d))) if A==0 else "addi r%d, r%d, %s0x%X"%(D,A,'-' if s16(d)<0 else '',abs(s16(d)))
     if op==15: return ("lis r%d, 0x%X"%(D,d)) if A==0 else "addis r%d, r%d, 0x%X"%(D,A,d)
@@ -43,6 +49,9 @@ def dis(i, pc=0):
     if op==31:
         if xo==444: return ("mr r%d, r%d"%(A,D)) if D==B else "or r%d, r%d, r%d"%(A,D,B)
         if xo==266: return "add r%d, r%d, r%d"%(D,A,B)
+        if xo==235: return "mullw r%d, r%d, r%d"%(D,A,B)
+        if xo==459: return "divwu r%d, r%d, r%d"%(D,A,B)
+        if xo==491: return "divw r%d, r%d, r%d"%(D,A,B)
         if xo==40:  return "subf r%d, r%d, r%d"%(D,A,B)
         if xo==316: return "xor r%d, r%d, r%d"%(A,D,B)
         if xo==28:  return "and r%d, r%d, r%d"%(A,D,B)

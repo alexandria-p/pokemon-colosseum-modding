@@ -1,0 +1,297 @@
+Pokémon Colosseum — Shadow Pokémon have a 1-in-XXXX chance of rolling a shiny
+PID against the PLAYER.  The odds are a DECIMAL field you edit yourself.
+
+US / GC6E01.  Written 2026-09-05.
+PAL conversion: codes/force_shadow_shiny_custom_odds_PAL.txt
+
+*** Shares the hook 0x801FA3E8 with force_shadow_shiny_US v2 and every other
+    1-in-N build.  Enable exactly ONE of them. ***
+
+
+-------------------------------------------------------------------------------
+THE CODE
+-------------------------------------------------------------------------------
+C21FA3E8 00000010
+38C00000 281E0000
+41820074 38000000
+6000XXXX 5408073E
+5409E73E 540AC73E
+540CA73E 1D29000A
+1D4A0064 1D8C03E8
+7D8C5214 7D8C4A14
+7D8C4214 280C0000
+4182003C 7D6C42E6
+7C0B6396 7C0061D6
+7C005850 28000000
+40820024 3D608047
+616BADB8 816B0000
+280B0000 41820010
+80EB009C 54E7803E
+38C00001 60000000
+
+Replace XXXX -- the last four digits of the word `6000XXXX`, first word of the
+fourth line -- with your odds, written in PLAIN DECIMAL, four digits:
+
+    60000004    ->  1 in 4
+    60000064    ->  1 in 64          (note: 0064, not 0040)
+    60000512    ->  1 in 512
+    60001024    ->  1 in 1024
+    60008192    ->  1 in 8192        (the games' own shiny rate)
+    60009999    ->  1 in 9999        (the maximum)
+    60000001    ->  1 in 1  = always fires (same as force_shadow_shiny_US v2)
+    60000000    ->  never fires (safely; see below)
+
+Use the digits 0-9 only, and always write all four (0004, not 4).
+Range: 0000 to 9999.
+
+
+-------------------------------------------------------------------------------
+HOW THE DECIMAL FIELD WORKS
+-------------------------------------------------------------------------------
+Gecko codes are hex, so a naive "put your number here" field would read 0512 as
+0x512 = 1298 and quietly give you the wrong odds -- the sort of mistake you
+could never detect by playing.  So this code treats the field as four decimal
+DIGITS and converts them properly:
+
+    li     r0, 0
+    ori    r0, r0, 0xXXXX          ; <- your field, four packed digits
+    rlwinm r8,  r0, 0,  28, 31     ; ones      = digit 0
+    rlwinm r9,  r0, 28, 28, 31     ; tens      = digit 1
+    rlwinm r10, r0, 24, 28, 31     ; hundreds  = digit 2
+    rlwinm r12, r0, 20, 28, 31     ; thousands = digit 3
+    mulli  r9,  r9,  10
+    mulli  r10, r10, 100
+    mulli  r12, r12, 1000
+    add    r12, r12, r10
+    add    r12, r12, r9
+    add    r12, r12, r8            ; r12 = N, your number in binary
+
+That is why 0512 really means five hundred and twelve, and 9999 really means
+nine thousand nine hundred and ninety-nine.
+
+A digit above 9 is not rejected, just misread: 00FF decodes as 15*10 + 15 = 165.
+Stick to 0-9.
+
+
+-------------------------------------------------------------------------------
+FULL DISASSEMBLY
+-------------------------------------------------------------------------------
+    li     r6, 0                ; the overwritten original instruction
+    cmplwi r30, 0               ; the game's own is-shadow flag
+    beq    done                 ; ordinary Pokemon -> untouched
+
+    li     r0, 0                ; --- decode the decimal field ---
+    ori    r0, r0, 0xXXXX       ; <<< YOUR ODDS GO HERE
+    rlwinm r8,  r0, 0,  28, 31
+    rlwinm r9,  r0, 28, 28, 31
+    rlwinm r10, r0, 24, 28, 31
+    rlwinm r12, r0, 20, 28, 31
+    mulli  r9,  r9,  10
+    mulli  r10, r10, 100
+    mulli  r12, r12, 1000
+    add    r12, r12, r10
+    add    r12, r12, r9
+    add    r12, r12, r8         ; r12 = N
+    cmplwi r12, 0
+    beq    done                 ; N = 0000 -> never fire, and no divide by zero
+
+    mftb   r11                  ; --- roll: is TB divisible by N? ---
+    divwu  r0, r11, r12         ; r0 = TB / N
+    mullw  r0, r0, r12          ; r0 = (TB / N) * N
+    subf   r0, r0, r11          ; r0 = TB mod N
+    cmplwi r0, 0
+    bne    done                 ; N-1 outcomes in N -> leave it alone
+
+    lis    r11, 0x8047          ; --- fire ---
+    ori    r11, r11, 0xADB8     ; r11 = &saveBasePtr  (US 0x8047ADB8)
+    lwz    r11, 0(r11)
+    cmplwi r11, 0
+    beq    done                 ; no save loaded -> untouched
+    lwz    r7, 0x9C(r11)        ; player's (SID << 16) | TID
+    rotlwi r7, r7, 16           ; -> (TID << 16) | SID
+    li     r6, 1                ; force shiny
+  done:
+    nop                         ; branch target (0x801FA464)
+
+32 instructions = 16 lines.  All four branches are PC-relative within the block
+and land on the trailing nop, so the line count and offsets never change no
+matter what you put in the field.
+
+Registers: r0, r8, r9, r10, r11, r12 are all volatile and dead at this hook.
+r3/r4/r5 hold the PID generator's other arguments and are not touched; r7 is
+overwritten only on the firing path, which is the whole point.
+
+
+-------------------------------------------------------------------------------
+WHY MODULO RATHER THAN A BIT MASK
+-------------------------------------------------------------------------------
+The earlier fixed-odds builds masked bits, which is smaller but only supports
+powers of two -- 1 in 512 works, 1 in 9999 cannot.  This version divides, so any
+value from 1 to 9999 is exact.
+
+Cost: a divwu, about 20 cycles, once per shadow PID roll. Irrelevant.
+
+There is a negligible modulo bias because 2^32 is not a multiple of most N (some
+residues are ~0.00002% more likely for N near 9999). It is far below anything
+observable.
+
+
+-------------------------------------------------------------------------------
+CHOOSING N: AVOID FACTORS OF 2, 3 AND 5
+-------------------------------------------------------------------------------
+The randomness is the CPU timebase, which ticks at 40.5 MHz -- one tick every
+24.7 ns, about 675,000 ticks per NTSC frame and 810,000 per PAL frame.  It is
+NOT frame-based; it is roughly forty million times finer than that.
+
+But if you reroll by delaying the encounter a whole number of frames, the
+timebase advances by a fixed amount each frame, so the value of TB mod N steps by
+
+    675000 mod N   (NTSC)        810000 mod N   (PAL)
+
+and you can only ever reach N / gcd(ticks_per_frame, N) of the N residues.
+675000 = 2^3 * 3^3 * 5^6 and 810000 = 2^4 * 3^4 * 5^4, so any N built from 2s,
+3s and 5s reaches badly:
+
+    N        US reach   PAL reach   verdict
+    4        1 of 4     1 of 4      whole-frame delays change NOTHING
+    8        1 of 8     1 of 8      whole-frame delays change NOTHING
+    512      64 of 512  32 of 512   poor
+    8192     1024       512         poor
+    9999     1111       1111        poor
+    8003     ALL 8003   ALL 8003    ideal
+    7919     ALL        ALL         ideal
+    4999     ALL        ALL         ideal
+
+**Pick an N with no factor of 2, 3 or 5** and every residue becomes reachable by
+frame delay, which makes rerolling reliable.  8003 = 53 x 151 is ideal.  So are
+7919, 4999, and any odd number not divisible by 3 or 5.
+
+Caveat in the other direction: the roll does not happen at a perfectly
+frame-quantised instant -- the game reaches it after a variable amount of setup
+work, so there is sub-frame jitter and even a power-of-two N will vary somewhat
+in practice.  The table says what you can RELY on, not what will always happen.
+
+None of this affects the odds themselves.  Over many independent encounters
+every N gives its stated 1-in-N rate.  It only affects how effectively you can
+reroll a single encounter by nudging the timing.
+
+
+-------------------------------------------------------------------------------
+WHAT THE ODDS MEAN IN PRACTICE
+-------------------------------------------------------------------------------
+There are 48 shadow Pokemon, and each PID is rolled ONCE at your first encounter
+and then persisted in the save.  So a playthrough is 48 rolls:
+
+    1 in 4      12 expected shiny shadows      ~100% chance of at least one
+    1 in 16      3                             95%
+    1 in 64      0.75                          53%
+    1 in 128     0.375                         31%
+    1 in 512     0.094                          9%
+    1 in 1024    0.047                          5%
+    1 in 8192    0.006                          1%
+
+Below about 1 in 64 you are more likely than not to finish a playthrough with no
+shiny shadow at all.
+
+Because the PID is fixed at first encounter, the code must be enabled BEFORE you
+meet each shadow Pokemon.  Changing the field afterwards cannot alter one that
+has already been rolled.
+
+
+-------------------------------------------------------------------------------
+REROLLING
+-------------------------------------------------------------------------------
+The timebase runs at ~40 MHz, so any real variation between attempts -- a button
+a frame later, a different approach, reloading the memory-card save instead of a
+Dolphin save state -- gives a completely different result.
+
+It cannot defeat a byte-identical replay: a save state restores the whole machine
+including the timebase, so reloading a state and reproducing your input exactly
+reproduces the result. That is emulation, not this code, and no in-game source
+avoids it.
+
+
+-------------------------------------------------------------------------------
+USING IT
+-------------------------------------------------------------------------------
+Enable together with codes/fix_shadow_shiny_glitch_US.txt and the anti-AR NOP
+set, with Dolphin in JIT64 SC mode.
+
+    this code (0x801FA3E8)      -> 1 shadow in N rolls a PID shiny against YOU
+    the glitch fix (0x80123FA8) -> the record carries YOUR OT SID/TID, so it
+                                   renders shiny while the enemy still owns it
+
+Do NOT also enable force_shadow_shiny_US v2, any fixed-odds build, or
+"Shiny Nation" / all-new-Pokemon-shiny (which hooks 0x801FA3E4, the instruction
+immediately before this one).
+
+
+-------------------------------------------------------------------------------
+HOW TO TEST IT AT BATTLE START (US) -- no need to wait for the shadow to appear
+-------------------------------------------------------------------------------
+The PID is rolled during battle SETUP, before anything is sent onto the field.
+So you can see the result the moment the battle begins.
+
+PRIMARY BREAKPOINT -- instruction breakpoint at  0x801FA3EC
+
+    801FA3E4  mr   r7, r25       ; OT trainer id argument
+    801FA3E8  li   r6, 0         ; <- the Gecko hook lives HERE. Do not break on
+                                 ;    this address: the C2 has replaced it with
+                                 ;    a branch, so you would not see li r6, 0.
+    801FA3EC  bl   0x80124410    ; <- BREAK HERE
+    801FA3F0  mr   r7, r3        ; <- and here: r3 = the freshly rolled PID
+
+At 0x801FA3EC, before it executes, the registers are exactly what your code
+produced:
+
+    r6 = 1   the odds check FIRED -- this shadow is being rolled shiny for you
+    r6 = 0   it did not fire -- normal roll
+    r7       the trainer ID dword being used.  If it fired this is YOUR
+             (TID << 16) | SID; otherwise it is the NPC trainer's.
+
+Then step one instruction to 0x801FA3F0 and read r3 -- that is the new PID.
+Check it yourself with:
+
+    shiny  if  (TID ^ SID ^ PID_high ^ PID_low) < 8
+
+Your TID/SID: read the word at 0x8047ADB8 to get the save base, then
+saveBase+0x9C is (SID << 16) | TID.
+
+FOR LONG ODDS -- use a CONDITIONAL breakpoint.  In Dolphin, set the breakpoint at
+0x801FA3EC with the condition
+
+    r6 == 1
+
+Now it only halts when the code actually fires.  At 1 in 8003 you can leave it
+running through many encounters and it will stop only on a hit, instead of you
+inspecting every roll by hand.
+
+IF THE BREAKPOINT NEVER FIRES for a shadow you are expecting:
+that shadow already has a stored PID, so the generator is being skipped entirely
+and no code can change it.  Confirm by setting a breakpoint at 0x801FA3B8
+(`bl 0x801EE750`, the stored-PID fetch) -- if THAT one hits instead, the PID was
+locked at an earlier encounter on this save.  You need a save from before you
+first met it.
+
+These breakpoints apply to every build that hooks 0x801FA3E8 -- v2 and all the
+1-in-N variants -- not just this one.
+
+
+-------------------------------------------------------------------------------
+VERIFICATION
+-------------------------------------------------------------------------------
+  * 0x801FA3E8 holds 38C00000 (li r6, 0) in the US dump -- the re-emitted
+    instruction
+  * every instruction encoding round-tripped through a disassembler
+  * the decimal decode was simulated for 0001, 0004, 0008, 0064, 0512, 1024,
+    8192, 9999 and 0000 -- all produce exactly the intended N
+  * the modulo was sampled over 400,000 uniform 32-bit values at N = 4, 512 and
+    9999; observed rates matched the targets within sampling noise
+  * 0000 is guarded before the divide, so there is no divide-by-zero path
+  * all four branch offsets land exactly on the trailing nop (0x801FA464)
+  * r30 is written once, at 0x801FA004, from is-shadow field 19, and is live
+
+The always-on v2 this derives from is confirmed working in-game, as is the
+shadow-only gate it reuses.  This build is NOT yet tested in-game -- test it at
+0001 (should behave exactly like v2: every shadow shiny) or 0002, then set your
+real odds.  At long odds a test that produces no shiny proves nothing.

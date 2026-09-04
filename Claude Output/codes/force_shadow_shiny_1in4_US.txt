@@ -1,0 +1,154 @@
+Pokémon Colosseum — Shadow Pokémon have a 1-in-4 chance of rolling a shiny PID
+against the PLAYER.  Randomness from the CPU timebase.
+
+US / GC6E01.  Written 2026-09-05.
+
+RECOMMENDED over codes/force_shadow_shiny_1in4_US.txt (the RNG-seed version):
+shorter, simpler, no pointer dereference, and far more sensitive to real timing.
+
+*** Shares the hook 0x801FA3E8 with force_shadow_shiny_US v2 and with the
+    seed version.  Enable exactly ONE of the three. ***
+
+
+-------------------------------------------------------------------------------
+THE CODE
+-------------------------------------------------------------------------------
+C21FA3E8 00000008
+38C00000 281E0000
+41820034 7D6C42E6
+556007BE 28000000
+40820024 3D608047
+616BADB8 816B0000
+280B0000 41820010
+80EB009C 54E7803E
+38C00001 60000000
+
+Disassembly:
+    li     r6, 0             ; the overwritten original instruction
+    cmplwi r30, 0            ; the game's own is-shadow flag
+    beq    done              ; ordinary Pokemon -> untouched
+    mftb   r11               ; CPU timebase, lower 32 bits (~40 MHz)
+    rlwinm r0, r11, 0, 30, 31    ; r0 = TB & 3
+    cmplwi r0, 0
+    bne    done              ; 3 outcomes in 4 -> leave it alone
+    lis    r11, 0x8047
+    ori    r11, r11, 0xADB8  ; r11 = &saveBasePtr  (US 0x8047ADB8)
+    lwz    r11, 0(r11)
+    cmplwi r11, 0
+    beq    done              ; no save loaded -> untouched
+    lwz    r7, 0x9C(r11)     ; player's (SID << 16) | TID
+    rotlwi r7, r7, 16        ; -> (TID << 16) | SID
+    li     r6, 1             ; force shiny
+  done:
+    nop                      ; branch target (0x801FA424)
+
+16 instructions = 8 lines exactly.  All three branches are PC-relative within
+the block and land on the trailing nop.
+
+
+-------------------------------------------------------------------------------
+HONEST ANSWER ON DETERMINISM -- READ THIS
+-------------------------------------------------------------------------------
+**No in-game value can be non-deterministic across a Dolphin save-state reload.**
+A save state restores the whole machine: RAM, registers, and the timebase
+register itself.  Reload a state and re-run with byte-identical input and you
+get byte-identical results, from any source you could read.  That is a property
+of emulation, not a limitation of this code.
+
+What a randomness source CAN do is be extremely sensitive to real variation, so
+that anything short of a frame-perfect replay gives a different answer.  On that
+axis the three candidates rank clearly:
+
+    timebase (this code)   ~40 MHz.  Low bits change every ~25 ns.  ANY timing
+                           difference -- a button pressed a frame later, a
+                           slightly different walking route, loading the
+                           memory-card save instead of a state -- scrambles it.
+
+    RNG seed               changes only when the game calls the RNG.  Coarser,
+                           and correlated with the PID being rolled from it.
+
+    save-file play time    WORST of the three.  It advances once per frame (or
+                           per second, depending which counter).  Two attempts
+                           within the same second give the same value, so it is
+                           far coarser than either of the above.
+
+So: play time would make things *more* repeatable, not less.  The timebase is
+the best source available in the machine, and it is what this code uses.
+
+Practically, the only scenario where you would see a repeat is loading a Dolphin
+save state taken very close to the encounter and then reproducing your input
+exactly.  Reload the in-game save from the memory card and walk back instead, and
+every attempt differs.
+
+
+-------------------------------------------------------------------------------
+WHY THE TIMEBASE IS ALSO THE SIMPLER CHOICE
+-------------------------------------------------------------------------------
+`mftb` is a single instruction reading a CPU register.  No pointer, no
+dereference, no null check -- which is why this version is 8 lines against the
+seed version's 10.
+
+It also does not touch the game's RNG at all, so every PID the game rolls is
+exactly what it would have been.  (The seed version reads the seed without
+advancing it, so it shares that property; calling the RNG outright would not.)
+
+Registers: `mftb` writes only r11.  r0 and r11 are volatile and dead at this
+point; r3/r4/r5/r7 already hold the PID generator's arguments and are not
+disturbed except for the deliberate r7 override on the firing path.
+
+
+-------------------------------------------------------------------------------
+STILL TRUE, AND STILL THE IMPORTANT PART
+-------------------------------------------------------------------------------
+**A shadow Pokemon's PID is rolled ONCE, at the first encounter, and then
+persisted in the save.**  This code permanently decides each shadow's fate the
+first time you meet it.  Three quarters will be non-shiny forever, and changing
+or disabling the code afterwards cannot alter one already rolled.
+
+If you want every shadow shiny, use v2 in codes/force_shadow_shiny_US.txt.
+
+
+-------------------------------------------------------------------------------
+ADJUSTING THE ODDS
+-------------------------------------------------------------------------------
+Change only the rlwinm mask; line count and branch offsets are unaffected:
+
+    1 in 2   rlwinm r0, r11, 0, 31, 31   -> 556007FE
+    1 in 4   rlwinm r0, r11, 0, 30, 31   -> 556007BE   (this code)
+    1 in 8   rlwinm r0, r11, 0, 29, 31   -> 5560077E
+    1 in 16  rlwinm r0, r11, 0, 28, 31   -> 5560073E
+
+Note these differ from the seed version's words: there the value is rotated 16
+first (to reach the usable high half of an LCG), here it is not, because the
+timebase's low bits are the fastest-changing and perfectly good.
+
+
+-------------------------------------------------------------------------------
+USING IT
+-------------------------------------------------------------------------------
+Enable together with codes/fix_shadow_shiny_glitch_US.txt and the anti-AR NOP
+set, with Dolphin in JIT64 SC mode.
+
+    this code (0x801FA3E8)      -> 1 shadow in 4 rolls a PID shiny against YOU
+    the glitch fix (0x80123FA8) -> the record carries YOUR OT SID/TID, so it
+                                   renders shiny while the enemy still owns it
+
+Do NOT also enable force_shadow_shiny_US v2, the seed version, or
+"Shiny Nation" / all-new-Pokemon-shiny (which hooks 0x801FA3E4, the instruction
+immediately before this one).
+
+
+-------------------------------------------------------------------------------
+VERIFICATION
+-------------------------------------------------------------------------------
+  * 0x801FA3E8 holds 38C00000 (li r6, 0) in the US dump -- the re-emitted
+    instruction
+  * mftb r11 encoding derived as mfspr r11, 268 with the SPR halves swapped,
+    and cross-checked against the known-good mftb r3 = 7C6C42E6
+  * r30 is written once, at 0x801FA004, from is-shadow field 19, and is live
+  * r0 and r11 are volatile and dead here; r3/r4/r5/r7 are untouched
+  * all three branch offsets land exactly on the trailing nop (0x801FA424)
+  * every encoding round-tripped through a disassembler
+
+The always-on v2 this derives from is confirmed working in-game, as is the
+shadow-only gate it reuses.  The timebase check is NOT yet tested in-game.
