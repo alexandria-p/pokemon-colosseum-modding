@@ -8,7 +8,7 @@ Designed to run alongside the PAL force-shadow-shiny code.
 
 
 -------------------------------------------------------------------------------
-THE CODE  — shadow Pokemon only
+THE CODE  — shadow Pokemon only   *** CONFIRMED WORKING IN-GAME 2026-09-04 ***
 -------------------------------------------------------------------------------
 C212811C 00000007
 281A0000 4182002C
@@ -135,5 +135,4 @@ and Dolphin in JIT64 SC mode, not Cached Interpreter.
 -------------------------------------------------------------------------------
 STATUS
 -------------------------------------------------------------------------------
-The US original is confirmed working in-game.  This PAL conversion is verified
-statically against the PAL MRAM dump but has NOT been tested in-game.
+Confirmed working in-game on both regions (2026-09-04).
